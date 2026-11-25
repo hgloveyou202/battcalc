@@ -1,0 +1,1065 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Máy tính dòng BMS</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: kết luận ở trên cùng; dưới là hai cột, bên trái nhập liệu theo 4 bước, bên phải kết quả chi tiết. */
+:root {
+  --bg: #eef1f3;
+  --surface: #ffffff;
+  --surface-2: #f4f7f8;
+  --ink: #12202a;
+  --muted: #566877;
+  --line: #d8dfe4;
+  --accent: #0a766f;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcf0ee;
+  --dis: #0a766f;
+  --chg: #2f6fc1;
+  --rms: #b4690e;
+  --good: #23764b;
+  --good-soft: #dff2e6;
+  --warn: #8f5d0a;
+  --warn-soft: #faedcf;
+  --bad: #b3322a;
+  --bad-soft: #fbe3df;
+  --f-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-head: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --f-data: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1317; --surface: #131c22; --surface-2: #18242b; --ink: #e5edf1; --muted: #93a5b1; --line: #263640;
+    --accent: #3cc0b5; --accent-ink: #04211e; --accent-soft: #123532;
+    --dis: #3cc0b5; --chg: #6ea8f0; --rms: #e0a24a;
+    --good: #55c98f; --good-soft: #14301f; --warn: #e3b252; --warn-soft: #33270d; --bad: #f2776a; --bad-soft: #3a1915;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1317; --surface: #131c22; --surface-2: #18242b; --ink: #e5edf1; --muted: #93a5b1; --line: #263640;
+  --accent: #3cc0b5; --accent-ink: #04211e; --accent-soft: #123532;
+  --dis: #3cc0b5; --chg: #6ea8f0; --rms: #e0a24a;
+  --good: #55c98f; --good-soft: #14301f; --warn: #e3b252; --warn-soft: #33270d; --bad: #f2776a; --bad-soft: #3a1915;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.5; }
+.wrap { max-width: 1260px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { padding-block: 28px 8px; }
+.kicker { font-family: var(--f-data); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
+h1 { font-family: var(--f-head); font-size: clamp(26px, 4vw, 36px); line-height: 1.1; margin: 0 0 8px; letter-spacing: -.01em; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 70ch; }
+h2 { font-family: var(--f-head); font-size: 18px; margin: 0; text-wrap: balance; }
+h3 { font-family: var(--f-head); font-size: 14px; margin: 0 0 8px; }
+main.wrap { padding-block: 16px 48px; display: flex; flex-direction: column; gap: 20px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-width: 0; }
+.card + .card { margin-top: 16px; }
+.card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.step { font-family: var(--f-data); font-size: 12px; font-weight: 600; width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--accent); color: var(--accent-ink); flex: none; }
+.cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 20px; align-items: start; }
+.col { min-width: 0; }
+@media (max-width: 960px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* tabs: Pin / Tải / BMS / Chi phí nhập kho */
+.tabs { position: sticky; top: 8px; z-index: 20; display: flex; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; scrollbar-width: none; box-shadow: 0 6px 16px -10px rgba(0, 0, 0, .35); }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px; padding: 0 16px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.tab:hover { background: var(--surface-2); color: var(--ink); }
+.tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.tab-badge { font-family: var(--f-data); font-size: 11px; font-weight: 500; padding: 1px 7px; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
+.tab-badge:empty { display: none; }
+.tab[aria-selected="true"] .tab-badge { background: color-mix(in srgb, var(--accent-ink) 16%, transparent); color: inherit; }
+.panel { display: flex; flex-direction: column; gap: 20px; }
+.cost-card { max-width: 760px; }
+@media (max-width: 480px) { .tab { padding: 0 12px; } }
+
+/* controls */
+label.lb { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+input, select, button { font: inherit; color: inherit; }
+input[type=number], input[type=text], select { width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--ink); }
+input[type=number], .mono { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); cursor: pointer; font-weight: 500; }
+.chip:hover { border-color: var(--accent); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.chip small { font-family: var(--f-data); font-size: 11px; opacity: .8; margin-left: 4px; }
+.btn { height: 36px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:hover { filter: brightness(1.08); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; }
+@media (max-width: 480px) { .grid3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.field { min-width: 0; }
+.field .unit { color: var(--muted); font-size: 11px; font-family: var(--f-data); }
+.block { margin-top: 14px; }
+.sub { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+.stepper { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; gap: 4px; }
+.stepper button { height: 36px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; cursor: pointer; font-size: 18px; line-height: 1; }
+.stepper input { text-align: center; font-size: 18px; font-weight: 600; }
+.tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--warn-soft); color: var(--warn); margin-left: 6px; }
+
+/* facts */
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-top: 14px; }
+@media (max-width: 480px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.facts div { background: var(--surface-2); padding: 8px 10px; }
+.facts dt { font-size: 11px; color: var(--muted); }
+.facts dd { margin: 0; font-family: var(--f-data); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* profile rows */
+.phead, .prow { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.1fr) minmax(0, .9fr) minmax(0, .7fr) minmax(0, .9fr) 32px; gap: 6px; align-items: end; }
+.phead { font-size: 11px; color: var(--muted); padding-bottom: 4px; }
+.prow { padding: 4px 0; }
+.prow .pf label { display: none; }
+.prow input, .prow select { padding: 0 6px; }
+.icon-btn { height: 36px; width: 32px; border: 1px solid var(--line); background: transparent; border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 18px; line-height: 1; }
+.icon-btn:hover { color: var(--bad); border-color: var(--bad); }
+@media (max-width: 640px) {
+  .phead { display: none; }
+  .prow { grid-template-columns: repeat(2, minmax(0, 1fr)) 36px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .prow .pf label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .prow .pname { grid-column: 1 / 3; }
+  .prow .icon-btn { grid-column: 3; grid-row: 1; align-self: end; }
+}
+
+/* verdict */
+.verdict { padding: 18px; }
+.vhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.vhead h2 { flex: 1 1 280px; font-size: 20px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+@media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpi { background: var(--surface-2); padding: 12px 14px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.kl { font-size: 12px; color: var(--muted); }
+.kv { font-family: var(--f-head); font-size: 30px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.kv small { font-size: 14px; color: var(--muted); font-weight: 500; margin-left: 3px; }
+.ks { font-size: 12px; color: var(--muted); font-family: var(--f-data); overflow-wrap: anywhere; }
+
+.pill { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 99px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill.ok { background: var(--good-soft); color: var(--good); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+
+/* tables */
+.tscroll { overflow-x: auto; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { text-align: left; font-weight: 500; font-size: 11px; color: var(--muted); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tbl td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl .num { font-family: var(--f-data); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl th.num { text-align: left; }
+.tbl .note { display: block; font-size: 11px; color: var(--muted); font-family: var(--f-body); }
+.tbl tr.hl td { background: var(--accent-soft); }
+.tbl tr.st-ok td { background: var(--good-soft); }
+.tbl tr.st-warn td { background: var(--warn-soft); }
+.tbl tr.st-bad td { background: var(--bad-soft); }
+.tbl tr[class^="st-"] td:first-child { padding-left: 10px; box-shadow: inset 3px 0 transparent; }
+.tbl tr.st-ok td:first-child { box-shadow: inset 3px 0 var(--good); }
+.tbl tr.st-warn td:first-child { box-shadow: inset 3px 0 var(--warn); }
+.tbl tr.st-bad td:first-child { box-shadow: inset 3px 0 var(--bad); }
+.tbl tr.sel td { font-weight: 600; }
+.tbl tr.sel td:first-child { box-shadow: inset 6px 0 var(--accent); }
+.bar { height: 6px; background: var(--line); border-radius: 3px; min-width: 60px; overflow: hidden; margin-top: 4px; }
+.bar i { display: block; height: 100%; border-radius: 3px; background: var(--good); }
+.bar.warn i { background: var(--warn); }
+.bar.bad i { background: var(--bad); }
+
+/* metrics */
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.metric { background: var(--surface-2); border-radius: 6px; padding: 10px 12px; min-width: 0; }
+.metric .ml { font-size: 11px; color: var(--muted); }
+.metric .mv { font-family: var(--f-data); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.metric .mv small { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+/* chart */
+#chartWrap { position: relative; margin: 6px 0 14px; }
+#chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+.sw.line { height: 0; border-top: 2px dashed; width: 18px; border-radius: 0; }
+#tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12px; padding: 6px 9px; border-radius: 6px; max-width: 220px; z-index: 5; line-height: 1.4; }
+#tip b { font-weight: 600; }
+
+/* bms detail */
+.calc-list { display: flex; flex-direction: column; }
+.calc { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.calc:last-child { border-bottom: 0; }
+.calc .cl { font-weight: 600; }
+.calc .cf { grid-column: 1; font-family: var(--f-data); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.calc .cr { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-family: var(--f-head); font-size: 22px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.calc .cr small { font-size: 12px; color: var(--muted); }
+.alert { padding: 10px 12px; border-radius: 6px; font-size: 13px; margin-top: 10px; }
+.alert.warn { background: var(--warn-soft); color: var(--warn); }
+.alert.bad { background: var(--bad-soft); color: var(--bad); }
+.alert.info { background: var(--surface-2); color: var(--muted); }
+.fine { font-size: 12px; color: var(--muted); }
+footer.fine { padding-block: 0 8px; max-width: 80ch; }
+footer.fine a { color: var(--accent); }
+@media (prefers-reduced-motion: no-preference) { .bar i { transition: width .25s ease; } }
+</style>
+<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <p class="kicker">RMS · Peak · C-rate · BMS</p>
+    <h1>Máy tính dòng BMS</h1>
+    <p class="lede">Chọn loại pin và mã cell, đặt số S, số P, nhập biên dạng tải. Kết quả cho RMS, dòng peak, số C xả và sạc, và dòng BMS nên chọn.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="verdict" class="card verdict" aria-live="polite"></section>
+
+  <div class="tabs" role="tablist" aria-label="Phần tính toán">
+    <button type="button" class="tab" role="tab" id="tab-pin" data-tab="pin" aria-controls="panel-pin" aria-selected="false" tabindex="-1">Pin<small class="tab-badge" id="tb-pin"></small></button>
+    <button type="button" class="tab" role="tab" id="tab-tai" data-tab="tai" aria-controls="panel-tai" aria-selected="false" tabindex="-1">Tải<small class="tab-badge" id="tb-tai"></small></button>
+    <button type="button" class="tab" role="tab" id="tab-bms" data-tab="bms" aria-controls="panel-bms" aria-selected="false" tabindex="-1">BMS<small class="tab-badge" id="tb-bms"></small></button>
+    <button type="button" class="tab" role="tab" id="tab-cost" data-tab="cost" aria-controls="panel-cost" aria-selected="false" tabindex="-1">Chi phí nhập kho<small class="tab-badge" id="tb-cost"></small></button>
+  </div>
+
+  <div class="panel" role="tabpanel" id="panel-pin" aria-labelledby="tab-pin" hidden>
+    <div class="cols">
+      <div class="col">
+        <section class="card">
+          <div class="card-head"><span class="step">1</span><h2>Loại pin và mã cell</h2></div>
+          <label class="lb">Hóa học pin</label>
+          <div class="chips" id="chemChips"></div>
+          <label class="lb block">Mã cell (kích thước)</label>
+          <div class="chips" id="sizeChips"></div>
+          <div class="block">
+            <label class="lb" for="cellSel">Mẫu cell <span id="editedTag"></span></label>
+            <select id="cellSel"></select>
+            <p class="alert warn" id="cellNote" hidden></p>
+            <p class="sub">Thông số mẫu là giá trị tham khảo làm tròn từ datasheet hoặc cell phổ thông. Hãy đối chiếu datasheet của lô cell bạn mua. Mọi ô bên dưới đều sửa được.</p>
+          </div>
+          <div class="grid3 block" id="cellFields"></div>
+        </section>
+      </div>
+      <div class="col">
+        <section class="card">
+          <div class="card-head"><span class="step">2</span><h2>Cấu hình pack (S × P)</h2></div>
+          <div class="grid2">
+            <div class="field"><label class="lb" for="inS">Số S (nối tiếp)</label>
+              <div class="stepper"><button type="button" data-step="S" data-d="-1" aria-label="Giảm S">−</button><input type="number" id="inS" min="1" step="1" inputmode="numeric"><button type="button" data-step="S" data-d="1" aria-label="Tăng S">+</button></div></div>
+            <div class="field"><label class="lb" for="inP">Số P (song song)</label>
+              <div class="stepper"><button type="button" data-step="P" data-d="-1" aria-label="Giảm P">−</button><input type="number" id="inP" min="1" step="1" inputmode="numeric"><button type="button" data-step="P" data-d="1" aria-label="Tăng P">+</button></div></div>
+          </div>
+          <label class="lb block">Chọn nhanh S theo điện áp hệ thống</label>
+          <div class="chips" id="vChips"></div>
+          <div class="grid2 block">
+            <div class="field"><label class="lb" for="tAh">Dung lượng mục tiêu (Ah)</label><input type="number" id="tAh" min="0" step="any" value="20" inputmode="decimal"></div>
+            <div class="field"><label class="lb">&nbsp;</label><button type="button" class="btn ghost" id="btnAh" style="width:100%">Tính P từ Ah</button></div>
+          </div>
+          <dl class="facts" id="packFacts"></dl>
+        </section>
+        <section class="card"><div class="card-head"><h2>Giới hạn dòng của pack</h2></div><div id="limits"></div></section>
+        <section class="card"><div class="card-head"><h2>Nhiệt, sụt áp, thời gian</h2></div><div id="thermal"></div></section>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" role="tabpanel" id="panel-tai" aria-labelledby="tab-tai" hidden>
+    <div class="cols">
+      <div class="col">
+        <section class="card">
+          <div class="card-head"><span class="step">3</span><h2>Biên dạng tải xả</h2></div>
+          <label class="lb" for="profSel">Mẫu tải có sẵn</label>
+          <select id="profSel"></select>
+          <p class="sub">Mỗi giai đoạn là một mức dòng (A) hoặc công suất (W) kéo dài trong một thời gian. Chu kỳ lặp lại để tính RMS. Thêm giai đoạn nghỉ với 0 A nếu có.</p>
+          <div class="grid2 block">
+            <div class="field"><label class="lb" for="inEff">Hiệu suất bộ điều khiển / inverter (%)</label><input type="number" id="inEff" min="10" max="100" step="1" inputmode="decimal"></div>
+            <div class="field"><label class="lb" for="selVb">Điện áp dùng để đổi W sang A</label>
+              <select id="selVb"><option value="nom">Danh định (S × điện áp danh định)</option><option value="min">Thấp nhất (cuối xả, dòng lớn hơn)</option></select></div>
+          </div>
+          <div class="block">
+            <div class="phead"><span>Giai đoạn</span><span>Hướng</span><span>Giá trị</span><span>Đơn vị</span><span>Thời gian (s)</span><span></span></div>
+            <div id="rows"></div>
+            <button type="button" class="btn ghost" id="btnAdd" style="margin-top:8px">+ Thêm giai đoạn</button>
+          </div>
+        </section>
+      </div>
+      <div class="col">
+        <section class="card">
+          <div class="card-head"><h2>RMS và peak của tải</h2></div>
+          <div id="metrics"></div>
+          <div class="legend" id="legend"></div>
+          <p class="sub" style="margin:0">Dòng cả pack (A) theo thời gian của một chu kỳ.</p>
+          <div id="chartWrap"><div id="chart"></div><div id="tip" hidden></div></div>
+          <div class="tscroll" id="checks"></div>
+        </section>
+        <section class="card"><div class="card-head"><h2>Số P tối thiểu</h2></div><div id="pmin"></div></section>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" role="tabpanel" id="panel-bms" aria-labelledby="tab-bms" hidden>
+    <div class="cols">
+      <div class="col">
+        <section class="card">
+          <div class="card-head"><span class="step">4</span><h2>Sạc và biên an toàn</h2></div>
+          <div class="grid2">
+            <div class="field"><label class="lb" for="inChg">Dòng bộ sạc (A)</label><input type="number" id="inChg" min="0" step="any" inputmode="decimal"></div>
+            <div class="field"><label class="lb" for="selChg">Giới hạn sạc của cell dùng để so sánh</label>
+              <select id="selChg"><option value="std">Sạc chuẩn</option><option value="max">Sạc nhanh tối đa</option></select></div>
+          </div>
+          <div class="chips block" id="cChips"></div>
+          <div class="grid3 block">
+            <div class="field"><label class="lb" for="inDerate">Hệ số dự phòng xả cell</label><input type="number" id="inDerate" min="0.3" max="1" step="0.05" inputmode="decimal"></div>
+            <div class="field"><label class="lb" for="inBm">Biên dự phòng của tải (%)</label><input type="number" id="inBm" min="0" step="5" inputmode="decimal"></div>
+            <div class="field"><label class="lb" for="inIr">Hệ số nội trở DC</label><input type="number" id="inIr" min="1" step="0.1" inputmode="decimal"></div>
+          </div>
+          <div class="block">
+            <label class="lb" for="selBms">Kiểu BMS</label>
+            <select id="selBms"><option value="common">Cổng chung (sạc và xả cùng đường)</option><option value="sep">Cổng riêng (đường sạc tách khỏi đường xả)</option></select>
+          </div>
+          <p class="sub">Hệ số dự phòng 0.8 nghĩa là chỉ dùng 80% dòng liên tục và peak ghi trong datasheet, vì datasheet đo ở 25 °C với cell được làm mát. Hệ số nội trở DC nhân với nội trở ghi trên datasheet (thường là AC 1 kHz, thấp hơn nội trở DC khi cell cũ) để tính sụt áp; 1.5 là mức thận trọng cho cell cuối đời.</p>
+        </section>
+      </div>
+      <div class="col">
+        <section class="card"><div class="card-head"><h2>Cách tính dòng BMS</h2></div><div id="bms"></div></section>
+      </div>
+    </div>
+    <section class="card"><div class="card-head"><h2>Chọn BMS</h2></div><div id="bmsList"></div></section>
+  </div>
+
+  <div class="panel" role="tabpanel" id="panel-cost" aria-labelledby="tab-cost" hidden>
+    <section class="card cost-card">
+        <div class="card-head"><h2>Dự trù nhập kho</h2></div>
+        <div class="grid2"><div class="field"><label class="lb" for="inPrice">Đơn giá 1 cell (đ)</label><input type="number" id="inPrice" min="0" step="any" inputmode="numeric"></div></div>
+        <div id="cost" class="block"></div>
+      </section>
+  </div>
+
+  <footer class="fine">Công cụ ước tính cho thiết kế sơ bộ. Chọn BMS theo dòng liên tục ghi trên MOSFET ở điều kiện có tản nhiệt, kiểm tra nhiệt độ cell và dây dẫn thực tế, và đối chiếu datasheet cell trước khi chế tạo pack.
+    <p>Nguồn dữ liệu: thông số và giá cell 18650, 21700, 26700, 32140, 32700 và BMS DALY lấy từ TQH Power ngày 25/11/2026, giá lẻ chưa gồm VAT:
+      <a href="https://tqhpower.vn/categories/pin-18650/">pin 18650</a>, <a href="https://tqhpower.vn/categories/pin-21700/">pin 21700</a>,
+      <a href="https://tqhpower.vn/categories/pin-26700/">pin 26700</a>, <a href="https://tqhpower.vn/categories/pin-32140/">pin 32140</a>,
+      <a href="https://tqhpower.vn/categories/pin-32700/">pin 32700</a>, <a href="https://tqhpower.vn/categories/bms/">BMS</a>.
+      BMS JK lấy từ Pinshop ngày 25/11/2026, giá chưa gồm phí vận chuyển: <a href="https://pinshop.vn/danh-muc/mach-bms-jk/">mạch BMS JK</a>,
+      mạch không thương hiệu <a href="https://pinshop.vn/san-pham/mach-can-bang-pin-32700-4s-30a-bao-ve-pin-hieu-qua-an-toan-tuyet-doi/">4S 30A</a>,
+      <a href="https://pinshop.vn/san-pham/mach-bms-4s-20a-cho-pin-32700-can-bang-toi-uu-cho-pin-lifepo4/">4S 20A</a>,
+      <a href="https://pinshop.vn/san-pham/mach-bao-ve-bms-8s-15a-can-bang-pin-32700-lifepo4-24v/">8S 15A</a>,
+      <a href="https://pinshop.vn/san-pham/mach-sac-bao-ve-pin-1s-10a-15a-3-7v-mach-can-bang-pin-32700/">1S 10A</a>,
+      <a href="https://pinshop.vn/san-pham/mach-sac-bao-ve-pin-1s-15a-3-7v-mach-can-bang-pin-32700/">1S 15A</a>.
+      Mạch BMS Li-ion 4S 16.8V 40A: thông số và giá do người dùng cung cấp.
+      Mạch BMS 5S 120A lấy từ <a href="https://cungcaplinhkien.vn/mach-bms-5s-3-7v-120a-dong-6a-bao-led-2-ben-su-dung-ic-chuyen-dung">Cung Cấp Linh Kiện</a> ngày 25/11/2026.
+      Thông số cell Samsung, LG, Molicel, Panasonic, EVE, Lishen, JSK lấy theo datasheet hãng (bản sao trên trang phân phối, tra ngày 25/11/2026); EVE 29V theo cửa hàng chính hãng EVE, EVPS theo trang hãng, EVE 26V-A theo thông số trên nkon.nl kèm tqhpower.vn, BTW/OEM/LTT theo trang nhà bán. Cell "Generic" là giá trị tham khảo của cell phổ thông.</p>
+    <p>Tham khảo thuật toán: <a href="https://www.batterydesign.net/battery-management-system/battery-management-system-algorithms/">Battery Management System Algorithms, batterydesign.net</a> (giới hạn dòng theo sụt áp, dòng cân bằng thụ động 50–200 mA, hết đời ở 80% dung lượng).</p></footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  function fmt(x, d) {
+    if (d === undefined) d = 1;
+    if (!isFinite(x) || x === null) return "–";
+    return Number(x).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: 0 });
+  }
+
+  /* ---------- dữ liệu ---------- */
+  var CHEM = {
+    nmc: { name: "Li-ion NMC / NCA", vnom: 3.6, vmax: 4.2, vmin: 3.0, volts: { 12: 3, 24: 7, 36: 10, 48: 13, 60: 16, 72: 20 } },
+    lfp: { name: "LiFePO₄ (LFP)", vnom: 3.2, vmax: 3.65, vmin: 2.5, volts: { 12: 4, 24: 8, 36: 12, 48: 16, 60: 20, 72: 24 } },
+    lto: { name: "LTO", vnom: 2.3, vmax: 2.8, vmin: 1.8, volts: { 12: 5, 24: 10, 36: 16, 48: 20, 60: 26, 72: 31 } }
+  };
+  // [id, chem, size, name, mAh, xả liên tục A, peak A (dòng xả tối đa ghi trên trang/datasheet), thời gian peak ms, sạc chuẩn A, sạc nhanh A, nội trở mΩ, khối lượng g, ghi chú?, { vnom, vmax, vmin }?]
+  // Điện áp riêng là tùy chọn; ô nào không ghi thì dùng giá trị của loại hóa học trong CHEM.
+  var RAW = [
+    ["g14", "nmc", "14500", "Generic 14500 · 800 mAh (2C)", 800, 1.6, 2.4, 5, 0.4, 0.8, 120, 22],
+    ["g18", "nmc", "18650", "Generic 18650 · 2600 mAh (2C)", 2600, 5, 8, 5, 1.3, 2.6, 45, 46],
+    ["s25r", "nmc", "18650", "Samsung INR18650-25R · 2500 mAh", 2500, 20, 100, 5, 1.25, 4, 18, 45, "Theo datasheet Samsung (bản 2013): xả liên tục 20 A, xung tối đa 100 A dưới 1 giây (lấy làm peak), sạc chuẩn 1.25 A, sạc nhanh 4 A, nội trở AC 1 kHz ≤ 18 mΩ (DC ≤ 30 mΩ).", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["s30q", "nmc", "18650", "Samsung INR18650-30Q · 3000 mAh", 3000, 15, 15, 5, 1.5, 4, 26, 48, "Theo datasheet Samsung (bản tạm 2014): xả liên tục tối đa 15 A (không ghi dòng xung, peak lấy bằng 15 A), sạc chuẩn 1.5 A, sạc nhanh 4 A, nội trở AC 1 kHz ≤ 26 mΩ.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["s35e", "nmc", "18650", "Samsung INR18650-35E · 3350 mAh", 3350, 8, 13, 5, 1.7, 2, 35, 50, "Theo datasheet Samsung Ver 1.1: dung lượng tối thiểu 3350 mAh (bán ra ghi 3500 mAh), xả liên tục 8 A, tối đa 13 A không liên tục (lấy làm peak), sạc chuẩn 1.7 A, sạc tối đa 2 A, nội trở AC 1 kHz ≤ 35 mΩ, áp cắt xả 2.65 V.", { vnom: 3.6, vmax: 4.2, vmin: 2.65 }],
+    ["mj1", "nmc", "18650", "LG INR18650-MJ1 · 3500 mAh", 3500, 10, 10, 5, 1.675, 3.35, 40, 49, "Theo datasheet LG (Rev 1, 2016): xả liên tục khoảng 10 A (không ghi dòng xung, peak lấy bằng 10 A), sạc chuẩn 0.5C = 1.675 A, sạc tối đa 1C = 3.35 A, nội trở AC 1 kHz ≤ 40 mΩ, dung lượng tối thiểu 3350 mAh.", { vnom: 3.635, vmax: 4.2, vmin: 2.5 }],
+    ["p28a", "nmc", "18650", "Molicel INR18650-P28A · 2800 mAh", 2800, 35, 35, 5, 2.8, 8.4, 20, 46, "Theo datasheet Molicel: xả tối đa 35 A (không ghi dòng xung, peak lấy bằng 35 A), sạc chuẩn 2.8 A, sạc tối đa 8.4 A, nội trở AC 1 kHz ≤ 20 mΩ (DC 20 mΩ), dung lượng tối thiểu 2700 mAh.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["b", "nmc", "18650", "Panasonic NCR18650B · 3350 mAh", 3350, 6.5, 6.5, 5, 1.625, 1.625, 40, 48.5, "Theo datasheet Panasonic: dung lượng điển hình 3350 mAh (tối thiểu 3200 mAh), sạc chuẩn 1.625 A, sạc tối đa 0.5C. Datasheet không ghi dòng xả tối đa: công cụ lấy mức 2C (6.5 A) là mức cao nhất trong biểu đồ xả. Nội trở không ghi, ước lượng 40 mΩ. Sạc ở 0–45 °C.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    // Nguồn: tqhpower.vn/categories/pin-18650 (11/2026). Thời gian peak không ghi, dùng 5 ms.
+    ["btw26ec", "nmc", "18650", "BTW INR18650-26EC · 2600 mAh", 2600, 7.8, 9, 5, 1.3, 2.6, 20, 45, "Theo tqhpower.vn. Sạc chuẩn 1.3 A lấy từ phần hỏi đáp của trang. Thời gian xung 9 A không ghi, dùng 5 ms.", { vnom: 3.7, vmax: 4.2, vmin: 2.75 }],
+    ["eve20p", "nmc", "18650", "EVE ICR18650-20P · 2000 mAh", 2000, 30, 30, 5, 1, 4, 18, 45, "Theo datasheet EVE (Ver. B, 2019): xả liên tục tối đa 30 A, ngắt nhiệt 80 °C (không ghi dòng xung, peak lấy bằng 30 A), sạc chuẩn 0.5C = 1 A, sạc nhanh 4 A, nội trở AC 1 kHz ≤ 18 mΩ, dung lượng tối thiểu 1900 mAh.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["eve25p", "nmc", "18650", "EVE INR18650-25P · 2500 mAh", 2500, 30, 30, 5, 1.25, 4, 18, 48, "Theo datasheet EVE (Ver. A, 2018): xả liên tục tối đa 30 A (không ghi dòng xung, peak lấy bằng 30 A), sạc chuẩn 0.5C = 1.25 A, sạc nhanh 4 A, nội trở AC 1 kHz ≤ 18 mΩ (bản một trang ghi ≤ 15 mΩ), dung lượng tối thiểu 2450 mAh.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["eve26v", "nmc", "18650", "EVE ICR18650-26V · 2550 mAh", 2550, 7.5, 7.5, 5, 0.5, 1.25, 30, 48, "Theo datasheet EVE (Ver. A, 2020): xả tức thời tối đa 7.5 A (lấy làm peak), không ghi dòng liên tục; cửa hàng chính hãng EVE ghi xả liên tục 7.5 A nên công cụ dùng 7.5 A. Sạc chuẩn 0.2C = 0.5 A, sạc nhanh 0.5C = 1.25 A (15–45 °C), nội trở AC 1 kHz ≤ 30 mΩ, dung lượng tối thiểu 2500 mAh.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["eve26va", "nmc", "18650", "EVE ICR18650-26V-A · 2650 mAh", 2650, 7.8, 13, 5, 0.52, 5.2, 18, 47, "Chưa đọc được datasheet EVE (mã 26VA, chỉ có trên trang bị chặn). Theo thông số EVE trên nkon.nl: 2650 mAh điển hình / 2600 mAh tối thiểu, xả 13 A, 3.6 V, 47 g. Theo tqhpower.vn: xả tiêu chuẩn 2.6–7.8 A (lấy mức trên), nội trở ≤ 18 mΩ AC 1 kHz. Thời gian xung không ghi, dùng 5 ms.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["eve29v", "nmc", "18650", "EVE INR18650-29V · 2850 mAh", 2850, 4.2, 8.4, 5, 0.56, 2.8, 30, 46.5, "Chưa đọc được datasheet đầy đủ. Theo cửa hàng chính hãng EVE: xả tối đa 8.4 A (lấy làm peak) nhưng cùng trang có chỗ ghi xả liên tục 4.2 A, công cụ dùng 4.2 A cho an toàn. Sạc chuẩn 0.56 A, sạc tối đa 2.8 A, nội trở ≤ 30 mΩ, sạc ở 0–45 °C.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["eve33v", "nmc", "18650", "EVE INR18650-33V · 3200 mAh", 3200, 10, 10, 5, 0.62, 3.1, 30, 46, "Theo datasheet EVE (Ver. A, 2021): xả liên tục tối đa 10 A (không ghi dòng xung, peak lấy bằng 10 A), sạc chuẩn 0.2C = 0.62 A (bản đầy đủ có chỗ ghi 0.5C, công cụ lấy mức thấp), sạc nhanh 1C = 3.1 A, nội trở AC 1 kHz ≤ 30 mΩ, dung lượng tối thiểu 3100 mAh.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["eve35v", "nmc", "18650", "EVE INR18650-35V · 3500 mAh", 3500, 10.2, 10.2, 5, 0.68, 3.4, 30, 50, "Theo datasheet EVE (Ver. C, 2025): xả liên tục tối đa 3C = 10.2 A, giảm tuổi thọ (không ghi dòng xung, peak lấy bằng 10.2 A), sạc chuẩn 0.2C = 0.68 A, sạc tối đa 1C = 3.4 A, nội trở AC 1 kHz ≤ 30 mΩ, dung lượng tối thiểu 3400 mAh.", { vnom: 3.65, vmax: 4.2, vmin: 2.5 }],
+    ["ls1865ss", "nmc", "18650", "Lishen LR1865SS · 3000 mAh", 3000, 6, 6, 5, 0.6, 0.9, 35, 48, "Theo datasheet Lishen (REV V0, 2020): xả liên tục tối đa 2C = 6 A ở 20–45 °C (1C = 3 A ngoài khoảng đó), không ghi dòng xung nên peak lấy bằng 6 A (trang nhà bán ghi xung 9 A, datasheet không có). Sạc chuẩn 0.2C = 0.6 A, sạc tối đa 0.3C = 0.9 A ở 20–45 °C. Nội trở AC 1 kHz ≤ 35 mΩ, dung lượng tối thiểu 2900 mAh.", { vnom: 3.65, vmax: 4.2, vmin: 2.5 }],
+    ["g21", "nmc", "21700", "Generic 21700 · 4000 mAh (2C)", 4000, 8, 12, 5, 2, 4, 25, 68],
+    ["s50e", "nmc", "21700", "Samsung INR21700-50E · 4900 mAh", 4900, 9.8, 14.7, 5, 2.45, 4.9, 14, 69.5, "Theo datasheet Samsung V1.0 (2019): dung lượng tối thiểu 4900 mAh (bán ra ghi 5000 mAh), xả liên tục 9.8 A, tối đa 14.7 A không liên tục (lấy làm peak), sạc chuẩn 2.45 A, sạc tối đa 4.9 A, nội trở AC 1 kHz 14 ± 5 mΩ.", { vnom: 3.63, vmax: 4.2, vmin: 2.5 }],
+    ["s40t", "nmc", "21700", "Samsung INR21700-40T3 · 4000 mAh", 4000, 35, 45, 5, 2, 6, 12, 70, "Theo datasheet Samsung INR21700-40T (bản 2017, không ghi riêng 40T3): xả liên tục 35 A, tối đa 45 A khi có ngắt nhiệt 80 °C (lấy làm peak), sạc chuẩn 2 A, sạc nhanh 6 A, nội trở AC 1 kHz 12 mΩ, dung lượng tối thiểu 4000 mAh.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["s30t", "nmc", "21700", "Samsung INR21700-30T · 3000 mAh", 3000, 35, 35, 5, 1.5, 4, 15, 70, "Theo datasheet Samsung (bản tạm 2017): xả liên tục tối đa 35 A (không ghi dòng xung, peak lấy bằng 35 A), sạc chuẩn 1.5 A, sạc nhanh 4 A, nội trở AC 1 kHz 15 mΩ, dung lượng tối thiểu 2900 mAh.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["m50", "nmc", "21700", "LG INR21700-M50LT · 4800 mAh", 4800, 7.2, 14.4, 5, 1.44, 3.36, 15, 68.2, "Theo datasheet LG (Rev 0, bản tạm 2020): 1C = 4800 mA, năng lượng 18.2 Wh. Xả liên tục 1.5C = 7.2 A ở 25–55 °C, 3C = 14.4 A ở 10–25 °C (lấy làm peak), chỉ 0.5C dưới 10 °C. Sạc chuẩn 0.3C = 1.44 A, sạc tối đa 0.7C = 3.36 A ở 25–45 °C. Nội trở AC 15 mΩ, DC 23 mΩ.", { vnom: 3.69, vmax: 4.2, vmin: 2.5 }],
+    ["p42a", "nmc", "21700", "Molicel INR21700-P42A · 4200 mAh", 4200, 45, 45, 5, 4.2, 4.2, 10, 70, "Theo datasheet Molicel: xả liên tục tối đa 45 A (không ghi dòng xung, peak lấy bằng 45 A), sạc chuẩn 4.2 A; sạc tối đa không ghi trong bảng (biểu đồ có đường sạc 8.4 A), công cụ dùng 4.2 A. Nội trở AC 1 kHz 10 mΩ, DC 16 mΩ. Dung lượng tối thiểu 4000 mAh.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["p45b", "nmc", "21700", "Molicel INR21700-P45B · 4500 mAh", 4500, 45, 45, 5, 4.5, 9, 8, 70, "Theo datasheet Molicel: xả liên tục tối đa 45 A (không ghi dòng xung, peak lấy bằng 45 A), sạc chuẩn 4.5 A, sạc tối đa 9 A (giảm tuổi thọ, 0–10 °C chỉ 4.5 A), nội trở AC 1 kHz ≤ 8 mΩ, dung lượng tối thiểu 4350 mAh.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    // Nguồn: tqhpower.vn/categories/pin-21700 (11/2026). Thời gian peak không ghi, dùng 5 ms.
+    ["eve40p", "nmc", "21700", "EVE INR21700-40P · 4000 mAh", 4000, 35, 50, 5, 2, 6, 12, 70, "Theo datasheet một trang của EVE: xả liên tục 35 A, tối đa 50 A khi có ngắt nhiệt 80 °C (lấy làm peak), sạc chuẩn 2 A, sạc tối đa 6 A, nội trở AC 1 kHz < 12 mΩ, nặng 70 g (trang nhà bán ghi 205 g là sai). Chưa đọc được bản datasheet đầy đủ.", { vnom: 3.6, vmax: 4.2, vmin: 2.5 }],
+    ["eve50e", "nmc", "21700", "EVE INR21700-50E · 5000 mAh", 5000, 15, 15, 5, 1, 10, 18, 68, "Theo datasheet EVE (Ver. B, 2025): xả liên tục tối đa 3C = 15 A, giảm tuổi thọ (không ghi dòng xung, peak lấy bằng 15 A), sạc chuẩn 0.2C = 1 A, sạc tối đa 2C = 10 A (giảm tuổi thọ), nội trở AC 1 kHz ≤ 18 mΩ, dung lượng tối thiểu 4950 mAh. Bản 2021 ghi sạc tối đa chỉ 1C = 5 A.", { vnom: 3.65, vmax: 4.2, vmin: 2.5 }],
+    ["ls2170la", "nmc", "21700", "Lishen LR2170LA · 4000 mAh", 4000, 45, 45, 5, 2, 6, 12, 68, "Theo datasheet Lishen Suzhou (bản 0, 2020): xả liên tục tối đa 45 A, dừng khi vỏ cell 80 °C (thử tuổi thọ ở 35 A), không ghi dòng xung nên peak lấy bằng 45 A. Sạc chuẩn 0.5C = 2 A, sạc tối đa 1.5C = 6 A ở 15–45 °C. Nội trở AC 1 kHz ≤ 12 mΩ, dung lượng tối thiểu 3900 mAh.", { vnom: 3.65, vmax: 4.2, vmin: 2.5 }],
+    ["g26n", "nmc", "26650", "Generic 26650 · 5000 mAh (2C)", 5000, 10, 15, 5, 2.5, 5, 18, 90],
+    ["g4680", "nmc", "4680", "Generic 4680 · 23 Ah (2C)", 23000, 46, 92, 5, 11.5, 23, 2, 355],
+    ["l26", "lfp", "26650", "Generic LFP 26650 · 3300 mAh (3C)", 3300, 10, 20, 5, 1.65, 3.3, 15, 85],
+    // Nguồn: tqhpower.vn/categories/pin-26700, pin-32700 (11/2026). Thời gian peak không ghi, dùng 5 ms.
+    ["evps2670", "lfp", "26700", "EVPS ITR2670-50ER6 · 5000 mAh", 5000, 5, 5, 5, 2.5, 2.5, 20, 95, "Không tìm được datasheet đầy đủ. Theo bảng thông số trên trang hãng EVPS (Anhui Levineng, cho mã ITR26/70-50E): xả liên tục tối đa 1C = 5 A, sạc tối đa 0.5C = 2.5 A, nội trở < 20 mΩ. Trang nhà bán ghi xả 10 A, cao hơn số của hãng. Áp cắt xả 2.0 V theo trang nhà bán và datasheet mã 46E cùng dòng.", { vnom: 3.2, vmax: 3.65, vmin: 2.0 }],
+    ["ifr26700", "lfp", "26700", "OEM IFR26700 · 4500 mAh", 4500, 12.5, 22.5, 5, 2.25, 2.6, 20, 90, "Theo tqhpower.vn: xả tiêu chuẩn 12.5 A, xung 22.5 A, nội trở ≤ 20 mΩ, áp cắt xả 2.0 V, khoảng 2000 chu kỳ. Dòng sạc 2.6 A không ghi là chuẩn hay tối đa, công cụ coi là tối đa và giả định sạc chuẩn 2.25 A (0.5C). Thời gian xung không ghi, dùng 5 ms.", { vnom: 3.2, vmax: 3.65, vmin: 2.0 }],
+    ["l32650", "lfp", "32650", "Generic LFP 32650 · 5000 mAh (3C)", 5000, 15, 25, 5, 2.5, 5, 10, 130],
+    ["l32700", "lfp", "32700", "Generic LFP 32700 · 6000 mAh (3C)", 6000, 18, 30, 5, 3, 6, 8, 145],
+    ["ltt32700", "lfp", "32700", "LTT-32700 · 6000 mAh", 6000, 12, 18, 5, 3, 6, 8, 140, "Trang tqhpower.vn chỉ ghi dòng xả tối đa 18 A (3C), không ghi dòng liên tục. Công cụ coi 18 A là peak và ước lượng xả liên tục 12 A (2C). Nội trở không ghi, ước lượng 8 mΩ. Sạc chuẩn không ghi, giả định 3 A (0.5C), sạc tối đa 6 A. Áp cắt xả 2.5 V lấy từ bài viết ở trang danh mục. Khoảng 2000 chu kỳ.", { vnom: 3.2, vmax: 3.65, vmin: 2.5 }],
+    ["l33700", "lfp", "33700", "Generic LFP 33700 · 6500 mAh (3C)", 6500, 20, 32, 5, 3.2, 6.5, 7, 155],
+    ["l38120", "lfp", "38120", "Generic LFP 38120 · 10 Ah (2C)", 10000, 20, 30, 5, 5, 10, 8, 280],
+    ["jsk32140", "lfp", "32140", "JSK JSK-IFR32140-15Ah · 15 Ah", 15000, 45, 45, 5, 7.5, 7.5, 3, 295, "Theo datasheet JSK (Taizhou Jiashikai, bản A0 2023): xả liên tục tối đa 45 A (3C), không ghi dòng xung nên peak lấy bằng 45 A (trang nhà bán ghi 75 A, datasheet không có). Sạc chuẩn 0.5C = 7.5 A; sạc tối đa 30 A chỉ ở 20–30 °C, ngoài khoảng đó 7.5 A nên công cụ dùng 7.5 A. Nội trở ≤ 3 mΩ, dung lượng tối thiểu 14000 mAh, 3000 chu kỳ.", { vnom: 3.2, vmax: 3.65, vmin: 2.5 }],
+    ["l32140a", "lfp", "32140", "Generic LFP 32140 · 15 Ah (1C xả liên tục)", 15000, 15, 30, 5, 7.5, 15, 6, 320],
+    ["l32140b", "lfp", "32140", "Generic LFP 32140 · 15 Ah (3C xả liên tục)", 15000, 45, 75, 5, 15, 15, 4, 330],
+    ["t18", "lto", "18650", "Generic LTO 18650 · 1300 mAh (10C)", 1300, 13, 26, 5, 6.5, 13, 25, 40]
+  ];
+  var CELLS = RAW.map(function (r) {
+    return { id: r[0], chem: r[1], size: r[2], name: r[3], cap: r[4], cont: r[5], peak: r[6], peakT: r[7], chgStd: r[8], chgMax: r[9], ir: r[10], mass: r[11], note: r[12] || "", v: r[13] || {} };
+  });
+  // Giá 1 cell (VNĐ) theo id cell trong RAW. Cell chưa có giá thì để trống, ô "Giá 1 cell" sẽ là 0 và sửa tay được.
+  // Giá bán lẻ 1 viên mới 100% trên tqhpower.vn ngày 25/11/2026, chưa gồm VAT. Mua số lượng lớn thì liên hệ shop báo giá.
+  var PRICE = {
+    btw26ec: 32000, eve20p: 37000, eve26v: 38000, eve25p: 55000, eve35v: 65000,
+    eve26va: 42000, eve29v: 51000, eve33v: 55000, ls1865ss: 38000,
+    eve40p: 70000, eve50e: 80000, ls2170la: 48000,
+    evps2670: 68000, ifr26700: 47000, jsk32140: 90000, ltt32700: 65000
+  };
+  var PRICE_NOTE = "Giá lẻ 1 viên mới 100% trên tqhpower.vn ngày 25/11/2026, chưa gồm VAT. Mua số lượng lớn nên hỏi shop báo giá sỉ.";
+
+  // Danh sách BMS. Mỗi BMS là một object:
+  //   id: mã duy nhất, brand: hãng, model: tên/mã BMS,
+  //   chem: loại pin hỗ trợ, mảng gồm "nmc", "lfp", "lto",
+  //   sMin, sMax: dải số S hỗ trợ (BMS chỉ đúng một số S thì để sMin = sMax),
+  //   sRange: (tùy chọn) dải S riêng theo loại pin, ví dụ { nmc: [7, 24], lfp: [8, 24], lto: [14, 24] }; có sRange thì bỏ qua chem/sMin/sMax,
+  //   cont: dòng xả liên tục A, peak: dòng xả peak A, chg: dòng sạc A,
+  //   port: "common" (cổng chung) hoặc "sep" (cổng riêng),
+  //   balance: dòng cân bằng A (tùy chọn), price: giá VNĐ, note: ghi chú (tùy chọn).
+  //   peak để null nếu nhà bán không ghi, khi đó công cụ bỏ qua bước so peak.
+  //   uvp: ngưỡng ngắt quá xả V/cell (tùy chọn), dùng để cảnh báo khi BMS ngắt thấp hơn áp cắt xả của cell.
+  var BMS_LIST = [
+    // { id: "vd-16s100", brand: "Hãng A", model: "16S 100A", chem: ["lfp"], sMin: 16, sMax: 16, cont: 100, peak: 300, chg: 50, port: "sep", balance: 0.05, price: 850000, note: "" },
+  ];
+
+  // BMS DALY trên tqhpower.vn/categories/bms (3 trang, 37 sản phẩm), ngày 25/11/2026. Giá lẻ 1 mạch, chưa gồm VAT.
+  // Tất cả là cổng chung (Common Port P-), dòng sạc = dòng xả, có NTC, bảo vệ OVP/UVP/OCP/SCP/OTP. Trang không ghi dòng peak/OCP.
+  // [mã, hóa học, S, dòng liên tục A, dòng cân bằng A, ngắt quá sạc V/cell, ngắt quá xả V/cell, giá đ]
+  var DALY_SERIES = { J13G3: "Mini G Series", J16H3: "Compact H Series", J24K3: "Pro K Series", R24K: "Smart K Series, Bluetooth" };
+  [
+    ["J13G3-3S15A", "nmc", 3, 15, 0.03, 4.25, 2.7, 210000], ["J13G3-3S20A", "nmc", 3, 20, 0.03, 4.25, 2.7, 210000],
+    ["J16H3-3S40A", "nmc", 3, 40, 0.1, 4.25, 2.7, 360000], ["J16H3-3S60A", "nmc", 3, 60, 0.1, 4.25, 2.7, 365000],
+    ["J13G3-6S15A", "nmc", 6, 15, 0.03, 4.25, 2.7, 210000], ["J13G3-6S20A", "nmc", 6, 20, 0.03, 4.25, 2.7, 210000],
+    ["J16H3-6S40A", "nmc", 6, 40, 0.1, 4.25, 2.7, 420000], ["J16H3-6S60A", "nmc", 6, 60, 0.1, 4.25, 2.7, 570000],
+    ["J13G3-4S15A", "lfp", 4, 15, 0.03, 3.75, 2.5, 150000], ["J13G3-4S20A", "lfp", 4, 20, 0.03, 3.75, 2.5, 170000],
+    ["J16H3-4S40A", "lfp", 4, 40, 0.07, 3.65, 2.3, 260000], ["J24K3-4S40A", "lfp", 4, 40, 0.07, 3.65, 2.3, 470000],
+    ["J16H3-4S60A", "lfp", 4, 60, 0.07, 3.65, 2.3, 420000], ["J24K3-4S60A", "lfp", 4, 60, 0.07, 3.65, 2.3, 780000],
+    ["J24K3-4S100A", "lfp", 4, 100, 0.07, 3.65, 2.3, 1140000],
+    ["J13G3-8S15A", "lfp", 8, 15, 0.03, 3.75, 2.5, 160000], ["J13G3-8S20A", "lfp", 8, 20, 0.03, 3.75, 2.5, 160000],
+    ["J16H3-8S40A", "lfp", 8, 40, 0.07, 3.65, 2.3, 360000], ["J24K3-8S40A", "lfp", 8, 40, 0.07, 3.65, 2.3, 520000],
+    ["J16H3-8S60A", "lfp", 8, 60, 0.07, 3.65, 2.3, 420000], ["J24K3-8S60A", "lfp", 8, 60, 0.07, 3.65, 2.3, 780000],
+    ["J24K3-8S100A", "lfp", 8, 100, 0.07, 3.65, 2.3, 1040000],
+    ["J24K3-16S40A", "lfp", 16, 40, 0.07, 3.65, 2.3, 520000], ["R24K-16S40A", "lfp", 16, 40, 0.1, 3.75, 2.2, 920000],
+    ["J24K3-16S60A", "lfp", 16, 60, 0.07, 3.65, 2.3, 780000], ["R24K-16S60A", "lfp", 16, 60, 0.1, 3.75, 2.2, 940000],
+    ["J24K3-16S100A", "lfp", 16, 100, 0.07, 3.65, 2.3, 990000], ["R24K-16S100A", "lfp", 16, 100, 0.1, 3.75, 2.2, 1250000],
+    ["J24K3-20S40A", "lfp", 20, 40, 0.07, 3.65, 2.3, 570000], ["R24K-20S40A", "lfp", 20, 40, 0.1, 3.75, 2.2, 780000],
+    ["J24K3-20S60A", "lfp", 20, 60, 0.07, 3.65, 2.3, 780000], ["R24K-20S60A", "lfp", 20, 60, 0.1, 3.75, 2.2, 990000],
+    ["J24K3-20S100A", "lfp", 20, 100, 0.07, 3.65, 2.3, 990000], ["R24K-20S100A", "lfp", 20, 100, 0.1, 3.75, 2.2, 1250000],
+    ["J24K3-24S40A", "lfp", 24, 40, 0.07, 3.65, 2.3, 570000], ["J24K3-24S60A", "lfp", 24, 60, 0.07, 3.65, 2.3, 780000],
+    ["J24K3-24S100A", "lfp", 24, 100, 0.07, 3.65, 2.3, 990000]
+  ].forEach(function (d) {
+    var series = d[0].split("-")[0];
+    BMS_LIST.push({ id: "daly-" + d[0].toLowerCase() + "-" + d[1], brand: "DALY", model: d[0] + "-" + (d[1] === "lfp" ? "LiFePO4" : "Li-ion"),
+      chem: [d[1]], sMin: d[2], sMax: d[2], cont: d[3], peak: null, chg: d[3], port: "common", balance: d[4], uvp: d[6], price: d[7],
+      note: DALY_SERIES[series] + " · ngắt " + d[5] + " / " + d[6] + " V/cell" + (d[0] === "J24K3-4S40A" ? " · trang ghi lẫn K và H Series" : "") });
+  });
+
+  // BMS JK (Jikong) trên pinshop.vn/danh-muc/mach-bms-jk (7 sản phẩm), ngày 25/11/2026. Giá 1 mạch, chưa gồm phí vận chuyển.
+  // Đa dụng: dải S theo từng loại pin, cân bằng chủ động, Bluetooth, ngưỡng OVP/UVP chỉnh được 1.2–4.4 V nên không cảnh báo UVP.
+  // Trang không ghi dòng sạc (trừ PB2A16S15P), công cụ coi bằng dòng xả liên tục vì sạc và xả cùng cổng.
+  // [mã, sRange, dòng liên tục A, dòng peak A, dòng cân bằng A, giá đ, ghi chú]
+  [
+    ["JK-PB2A16S15P", { nmc: [8, 16], lfp: [8, 16] }, 150, 300, 2, 2106000, "dòng sạc 150 A; kiểu cổng không ghi"],
+    ["JK-BD4A20S4P", { nmc: [8, 20], lfp: [8, 20], lto: [14, 20] }, 40, 60, 0.4, 864000, "OCP chỉnh 10–40 A"],
+    ["JK-BD4A20S6P", { nmc: [8, 20], lfp: [8, 20], lto: [14, 20] }, 60, 120, 0.4, 928800, "OCP chỉnh 10–60 A"],
+    ["JK-BD4A24S-10P", { nmc: [8, 24], lfp: [8, 24], lto: [14, 24] }, 100, 200, 0.4, 993600, "OCP chỉnh 10–100 A"],
+    ["JK-BD6A24S10P", { nmc: [7, 24], lfp: [8, 24], lto: [14, 24] }, 100, 200, 0.6, 993600, "OCP chỉnh 10–100 A; RS485/CAN tùy chọn"],
+    ["JK-BD6A17S6P", { nmc: [7, 17], lfp: [8, 17], lto: [14, 17] }, 60, 100, 0.6, 928800, "OCP chỉnh 10–60 A; kiểu cổng không ghi"],
+    ["JK-BD6A24S6P", { nmc: [7, 24], lfp: [8, 24], lto: [14, 24] }, 60, 100, 0.6, 928800, "OCP chỉnh 10–60 A"]
+  ].forEach(function (d) {
+    BMS_LIST.push({ id: d[0].toLowerCase(), brand: "JK", model: d[0], chem: Object.keys(d[1]), sRange: d[1],
+      cont: d[2], peak: d[3], chg: d[2], port: "common", balance: d[4], price: d[5],
+      note: "cân bằng chủ động · Bluetooth · " + d[6] });
+  });
+
+  // BMS không thương hiệu trên pinshop.vn, ngày 25/11/2026. Giá 1 mạch, chưa gồm phí vận chuyển.
+  BMS_LIST.push(
+    { id: "nobrand-bms-4s-30a", brand: "NoBrand", model: "BMS-4S-30A (cho cell 32700)", chem: ["nmc", "lfp"], sRange: { nmc: [4, 4], lfp: [4, 4] },
+      cont: 20, peak: 30, chg: 15, port: "common", price: 118800,
+      note: "trang ghi xả tối đa 30 A (lấy làm peak), không ghi dòng liên tục nên ước lượng 20 A; sạc khuyến nghị 15–20 A; có cân bằng nhưng không ghi dòng; không ghi ngưỡng OVP/UVP, hỏi shop bản dùng cho Li-ion hay LiFePO4" },
+    { id: "nobrand-bms-1s-10a", brand: "NoBrand", model: "BMS-1S-10A (Li-ion 3.7 V)", chem: ["nmc"], sMin: 1, sMax: 1,
+      cont: 10, peak: 10, chg: 3, port: "common", uvp: 2.5, price: 30240,
+      note: "xả liên tục và tối đa 10 A; sạc khuyến nghị ≤ 3 A; ngắt khoảng 4.25 / 2.5 V; không cân bằng (1S không cần)" },
+    { id: "nobrand-bms-1s-15a", brand: "NoBrand", model: "BMS-1S-15A (Li-ion 3.7 V)", chem: ["nmc"], sMin: 1, sMax: 1,
+      cont: 15, peak: 15, chg: 5, port: "common", uvp: 2.5, price: 38880,
+      note: "xả liên tục và tối đa 15 A; sạc khuyến nghị ≤ 5 A; ngắt khoảng 4.25 / 2.5 V; không cân bằng (1S không cần)" },
+    { id: "nobrand-mcb-4s-20a", brand: "NoBrand", model: "MCB-4S-20A (LiFePO4)", chem: ["lfp"], sMin: 4, sMax: 4,
+      cont: 20, peak: 20, chg: 10, port: "common", price: 162000,
+      note: "xả liên tục 20 A, trang ghi ngắt khi vượt 20 A nên peak = 20 A; sạc tối đa 10 A, áp sạc 14.6 V; có cân bằng nhưng không ghi dòng; không ghi ngưỡng UVP" },
+    { id: "nobrand-mcb-8s-15a", brand: "NoBrand", model: "MCB-8S-15A (LiFePO4 24 V)", chem: ["lfp"], sMin: 8, sMax: 8,
+      cont: 15, peak: null, chg: 10, port: "common", price: 129600,
+      note: "xả liên tục 15 A; sạc tối đa 10 A, áp sạc 29.2 V; có cân bằng nhưng không ghi dòng; không ghi dòng peak và ngưỡng UVP" },
+    // Thông số từ ảnh người dùng gửi, giá 50.000 đ do người dùng cung cấp, chưa có link nguồn.
+    { id: "nobrand-bms-4s-40a-liion", brand: "NoBrand", model: "BMS 4S 16.8V 40A (Li-ion 18650)", chem: ["nmc"], sMin: 4, sMax: 4,
+      cont: 40, peak: 90, chg: 40, port: "common", price: 50000,
+      note: "xả liên tục 40 A, quá tải tức thời 90 A; sạc 16.8 V (4.2 V × 4); sạc xả chung 1 cổng; có cân bằng; dòng sạc không ghi nên coi bằng dòng xả; thông số ghi \"xả cạn 14.4 V\" (3.6 V/cell) có thể là áp danh định, nên không dùng làm ngưỡng UVP" },
+    // cungcaplinhkien.vn, ngày 25/11/2026. Giá lẻ, đơn tối thiểu 150.000 đ.
+    { id: "nobrand-pvn24892-5s", brand: "NoBrand", model: "BMS 5S 18V/21V 120A, IC KX G3-T4 (mã PVN24892)", chem: ["nmc"], sMin: 5, sMax: 5,
+      cont: null, peak: 120, chg: 6, port: "common", price: 80000,
+      note: "kiểu pin Makita 18 V, báo LED 2 bên; trang chỉ ghi 120 A không rõ loại dòng (lấy làm peak), không ghi dòng liên tục; sạc 4–6 A; không ghi kiểu cổng, cân bằng, ngưỡng OVP/UVP" }
+  );
+
+  var STD = [10, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150, 200, 250, 300, 400, 500];
+  function nextStd(x) { for (var i = 0; i < STD.length; i++) if (STD[i] >= x - 1e-9) return STD[i]; return Math.ceil(x / 50) * 50; }
+
+  var FIELDS = [
+    ["cap", "Dung lượng", "mAh"], ["vnom", "Áp danh định", "V"], ["vmax", "Áp sạc đầy", "V"],
+    ["vmin", "Áp cắt xả (UVP)", "V"], ["cont", "Xả liên tục", "A"], ["peak", "Xả peak", "A"],
+    ["peakT", "Thời gian peak", "ms"], ["chgStd", "Sạc chuẩn", "A"], ["chgMax", "Sạc nhanh tối đa", "A"],
+    ["ir", "Nội trở DC", "mΩ"], ["mass", "Khối lượng", "g"]
+  ];
+
+  var PROFILES = {
+    ebike: { name: "E-bike / xe đạp điện (tính theo W)", eff: 90, rows: [
+      { name: "Khởi hành, tăng tốc", kind: "dis", unit: "W", val: 1800, dur: 8 },
+      { name: "Chạy đường bằng", kind: "dis", unit: "W", val: 500, dur: 120 },
+      { name: "Leo dốc", kind: "dis", unit: "W", val: 900, dur: 40 },
+      { name: "Phanh tái sinh", kind: "chg", unit: "W", val: 300, dur: 5 },
+      { name: "Dừng chờ", kind: "dis", unit: "A", val: 0, dur: 30 } ] },
+    scooter: { name: "Xe máy điện / scooter 3 kW (tính theo W)", eff: 92, rows: [
+      { name: "Tăng tốc", kind: "dis", unit: "W", val: 5000, dur: 10 },
+      { name: "Chạy ổn định", kind: "dis", unit: "W", val: 1800, dur: 180 },
+      { name: "Lên dốc", kind: "dis", unit: "W", val: 3500, dur: 30 },
+      { name: "Phanh tái sinh", kind: "chg", unit: "W", val: 800, dur: 6 },
+      { name: "Dừng chờ", kind: "dis", unit: "A", val: 0, dur: 20 } ] },
+    tool: { name: "Dụng cụ điện cầm tay (tính theo A)", eff: 95, rows: [
+      { name: "Khởi động mô-tơ", kind: "dis", unit: "A", val: 45, dur: 1 },
+      { name: "Khoan, bắt vít", kind: "dis", unit: "A", val: 22, dur: 8 },
+      { name: "Nghỉ", kind: "dis", unit: "A", val: 0, dur: 15 } ] },
+    inverter: { name: "Inverter / lưu trữ 1500 W (tính theo W)", eff: 90, rows: [
+      { name: "Tải liên tục", kind: "dis", unit: "W", val: 1500, dur: 600 },
+      { name: "Khởi động tải cảm (surge)", kind: "dis", unit: "W", val: 3000, dur: 2 },
+      { name: "Tải nhẹ", kind: "dis", unit: "W", val: 300, dur: 600 } ] },
+    blank: { name: "Tự nhập (giữ các giai đoạn hiện tại)", rows: null }
+  };
+
+  var state = {
+    chem: "lfp", size: "32140", cellId: "jsk32140", cell: {}, edited: false,
+    S: 16, P: 2, derate: 0.8, bm: 25, irMul: 1.5, eff: 90, vb: "nom",
+    rows: [], chg: 5, chgBasis: "std", bmsType: "common", bmsId: null, bmsBrand: null
+  };
+  var last = null;
+
+  /* ---------- dựng giao diện nhập ---------- */
+  function sizes(chem) {
+    var s = [];
+    CELLS.forEach(function (c) { if (c.chem === chem && s.indexOf(c.size) < 0) s.push(c.size); });
+    return s.sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); });
+  }
+  function buildChem() {
+    $("chemChips").innerHTML = Object.keys(CHEM).map(function (k) {
+      return '<button type="button" class="chip" data-chem="' + k + '" aria-pressed="' + (state.chem === k) + '">' + esc(CHEM[k].name) + "</button>";
+    }).join("");
+  }
+  function buildSizes() {
+    $("sizeChips").innerHTML = sizes(state.chem).map(function (s) {
+      return '<button type="button" class="chip mono" data-size="' + s + '" aria-pressed="' + (state.size === s) + '">' + s + "</button>";
+    }).join("");
+  }
+  function buildCellSel() {
+    $("cellSel").innerHTML = CELLS.filter(function (c) { return c.chem === state.chem && c.size === state.size; })
+      .map(function (c) { return '<option value="' + c.id + '"' + (c.id === state.cellId ? " selected" : "") + ">" + esc(c.name) + "</option>"; }).join("");
+  }
+  function buildVolts() {
+    var ch = CHEM[state.chem], vn = state.cell.vnom || ch.vnom;
+    $("vChips").innerHTML = Object.keys(ch.volts).map(function (v) {
+      var s = ch.volts[v];
+      return '<button type="button" class="chip" data-s="' + s + '">' + v + ' V<small>' + s + "S · " + fmt(s * vn, 1) + "V</small></button>";
+    }).join("");
+  }
+  function buildCellFields() {
+    $("cellFields").innerHTML = FIELDS.map(function (f) {
+      return '<div class="field"><label class="lb" for="f-' + f[0] + '">' + f[1] + ' <span class="unit">' + f[2] + '</span></label><input type="number" id="f-' + f[0] + '" data-cell="' + f[0] + '" min="0" step="any" inputmode="decimal"></div>';
+    }).join("");
+  }
+  function writeCell() {
+    FIELDS.forEach(function (f) { $("f-" + f[0]).value = state.cell[f[0]]; });
+    $("inPrice").value = state.cell.price;
+    $("editedTag").innerHTML = state.edited ? '<span class="tag">đã chỉnh tay</span>' : "";
+  }
+  function pickCell(id) {
+    var c = CELLS.filter(function (x) { return x.id === id; })[0];
+    if (!c) return;
+    var ch = CHEM[c.chem], v = c.v;
+    state.cellId = id; state.edited = false;
+    state.cell = { cap: c.cap, vnom: v.vnom || ch.vnom, vmax: v.vmax || ch.vmax, vmin: v.vmin || ch.vmin, cont: c.cont, peak: c.peak, peakT: c.peakT, chgStd: c.chgStd, chgMax: c.chgMax, ir: c.ir, mass: c.mass, price: PRICE[id] || 0 };
+    writeCell();
+    var nt = $("cellNote"); nt.textContent = c.note; nt.hidden = !c.note;
+  }
+  function rowHTML(r, i) {
+    return '<div class="prow" data-i="' + i + '">' +
+      '<div class="pf pname"><label for="r' + i + 'n">Giai đoạn</label><input type="text" id="r' + i + 'n" data-k="name" value="' + esc(r.name) + '"></div>' +
+      '<div class="pf"><label for="r' + i + 'k">Hướng</label><select id="r' + i + 'k" data-k="kind"><option value="dis"' + (r.kind === "dis" ? " selected" : "") + '>Xả</option><option value="chg"' + (r.kind === "chg" ? " selected" : "") + '>Sạc</option></select></div>' +
+      '<div class="pf"><label for="r' + i + 'v">Giá trị</label><input type="number" id="r' + i + 'v" data-k="val" min="0" step="any" inputmode="decimal" value="' + r.val + '"></div>' +
+      '<div class="pf"><label for="r' + i + 'u">Đơn vị</label><select id="r' + i + 'u" data-k="unit"><option' + (r.unit === "A" ? " selected" : "") + '>A</option><option' + (r.unit === "W" ? " selected" : "") + '>W</option></select></div>' +
+      '<div class="pf"><label for="r' + i + 'd">Thời gian (s)</label><input type="number" id="r' + i + 'd" data-k="dur" min="0" step="any" inputmode="decimal" value="' + r.dur + '"></div>' +
+      '<button type="button" class="icon-btn" data-del="' + i + '" aria-label="Xóa giai đoạn ' + (i + 1) + '">×</button></div>';
+  }
+  function buildRows() { $("rows").innerHTML = state.rows.map(rowHTML).join(""); }
+  function buildCChips() {
+    $("cChips").innerHTML = [0.2, 0.5, 1].map(function (c) { return '<button type="button" class="chip" data-c="' + c + '">Sạc ' + c + "C</button>"; }).join("");
+  }
+  function writeScalars() {
+    $("inS").value = state.S; $("inP").value = state.P; $("inEff").value = state.eff;
+    $("inChg").value = state.chg; $("inDerate").value = state.derate; $("inBm").value = state.bm; $("inIr").value = state.irMul;
+    $("selVb").value = state.vb; $("selChg").value = state.chgBasis; $("selBms").value = state.bmsType;
+  }
+  function loadProfile(k) {
+    var p = PROFILES[k];
+    if (!p || !p.rows) return;
+    state.rows = JSON.parse(JSON.stringify(p.rows));
+    if (p.eff) { state.eff = p.eff; $("inEff").value = p.eff; }
+    buildRows();
+  }
+
+  /* ---------- tính toán ---------- */
+  function calc() {
+    var c = state.cell, S = state.S, P = state.P, dr = state.derate;
+    var pack = { vnom: S * c.vnom, vmax: S * c.vmax, vmin: S * c.vmin, ah: P * c.cap / 1000 };
+    pack.wh = pack.vnom * pack.ah; pack.n = S * P; pack.kg = pack.n * c.mass / 1000; pack.rmo = S * c.ir / P;
+    // giới hạn dòng theo sụt áp (State of Power): I = ΔV ÷ R_DC, với OCV ≈ áp danh định (giữa dung lượng)
+    var rdc = c.ir * state.irMul / 1000;
+    var vLimDis = rdc > 0 ? Math.max(0, (c.vnom - c.vmin) / rdc) : Infinity;
+    var vLimChg = rdc > 0 ? Math.max(0, (c.vmax - c.vnom) / rdc) : Infinity;
+    var contLim = Math.min(c.cont * dr, vLimDis), peakLim = Math.min(c.peak * dr, vLimDis);
+    var chgLim = Math.min(state.chgBasis === "max" ? c.chgMax : c.chgStd, vLimChg), chgMaxLim = Math.min(c.chgMax, vLimChg);
+    var eff = Math.max(0.01, state.eff / 100);
+    var vref = state.vb === "min" ? pack.vmin : pack.vnom;
+
+    var rows = state.rows.map(function (r) {
+      var val = Math.max(0, r.val || 0), dur = Math.max(0, r.dur || 0);
+      var I = r.unit === "A" ? val : (r.kind === "chg" ? val * eff / vref : val / (vref * eff));
+      return { name: r.name || "Giai đoạn", kind: r.kind, I: I, dur: dur };
+    }).filter(function (r) { return r.dur > 0; });
+
+    var T = 0, sq = 0, sumD = 0, sumC = 0, peakDis = 0, peakChg = 0, sust = 0;
+    rows.forEach(function (r) {
+      T += r.dur; sq += r.I * r.I * r.dur;
+      if (r.kind === "dis") { sumD += r.I * r.dur; peakDis = Math.max(peakDis, r.I); if (r.dur > c.peakT / 1000) sust = Math.max(sust, r.I); }
+      else { sumC += r.I * r.dur; peakChg = Math.max(peakChg, r.I); }
+    });
+    var rms = T > 0 ? Math.sqrt(sq / T) : 0;
+    var avgDis = T > 0 ? sumD / T : 0, avgChg = T > 0 ? sumC / T : 0, net = avgDis - avgChg;
+    var contReq = Math.max(rms, sust);
+
+    // kiểm tra theo cell
+    var checks = [], needs = [];
+    var t0 = 0;
+    rows.forEach(function (r) {
+      var isBurst = r.dur <= c.peakT / 1000, lim;
+      if (r.kind === "dis") lim = isBurst ? peakLim : contLim; else lim = chgMaxLim;
+      var pc = r.I / P;
+      r.start = t0; t0 += r.dur;
+      checks.push({ label: r.name, sub: r.kind === "dis" ? (isBurst ? "xả peak (≤ " + fmt(c.peakT, 1) + " ms)" : "xả liên tục") : "sạc tái sinh", I: r.I, pc: pc, lim: lim, u: lim > 0 ? pc / lim : Infinity });
+      needs.push({ label: r.name, req: lim > 0 ? r.I / lim : Infinity });
+    });
+    if (rows.length) {
+      checks.push({ label: "RMS cả chu kỳ", sub: "quyết định nhiệt", I: rms, pc: rms / P, lim: contLim, u: contLim > 0 ? rms / P / contLim : Infinity, summary: true });
+      needs.push({ label: "RMS cả chu kỳ", req: contLim > 0 ? rms / contLim : Infinity });
+    }
+    checks.push({ label: "Bộ sạc", sub: state.chgBasis === "max" ? "so với sạc nhanh tối đa" : "so với sạc chuẩn", I: state.chg, pc: state.chg / P, lim: chgLim, u: chgLim > 0 ? state.chg / P / chgLim : Infinity, summary: true });
+    needs.push({ label: "Bộ sạc", req: chgLim > 0 ? state.chg / chgLim : Infinity });
+    var pReq = 1, lim = null;
+    needs.forEach(function (n) { var p = Math.max(1, Math.ceil(n.req - 1e-9)); n.p = p; if (p > pReq) { pReq = p; } });
+    needs.forEach(function (n) { if (n.p === pReq && lim === null && pReq > 1) lim = n.label; });
+    if (pReq === 1) lim = needs.length ? needs.reduce(function (a, b) { return a.req >= b.req ? a : b; }).label : null;
+    checks.forEach(function (k) { k.st = k.u > 1 ? "bad" : k.u > 0.9 ? "warn" : "ok"; });
+    var worst = checks.some(function (k) { return k.st === "bad"; }) ? "bad" : checks.some(function (k) { return k.st === "warn"; }) ? "warn" : "ok";
+
+    // BMS: chọn theo khả năng của cell × P, không theo biên dạng tải
+    var packContRaw = P * c.cont;          // xả liên tục datasheet × P
+    var reqCont = P * contLim;             // xả liên tục pack: min(datasheet × dự phòng, giới hạn sụt áp) × P
+    var ocpHi = P * c.peak;                // OCP không được vượt peak datasheet × P
+    var packChg = P * chgLim;              // sạc theo cell (chuẩn hoặc nhanh) × P
+    var reqChg = state.chg;                // dòng bộ sạc
+    var recCont = nextStd(reqCont);      // BMS lớn hơn khả năng cell vẫn được
+    var recChg = nextStd(packChg);
+    var recCommon = state.chg > recCont ? nextStd(state.chg) : recCont;  // cổng chung: đủ cho cả xả và bộ sạc
+    // tải theo biên dạng (chỉ để kiểm tra pack có đáp ứng được không)
+    var loadCont = contReq * (1 + state.bm / 100);
+
+    // nhiệt
+    var loss = rms * rms * pack.rmo / 1000;
+    var sag = peakDis * pack.rmo / 1000;
+    var heat = Math.pow(rms / P, 2) * c.ir / 1000;
+    var usable = pack.ah * 0.9;
+    var runtime = net > 0 ? usable / net : Infinity;
+    var chgTime = state.chg > 0 ? pack.ah * 1.15 / state.chg : Infinity;
+
+    // chi phí
+    var cellCost = pack.n * Math.max(0, c.price || 0);
+    var bmsSel = BMS_LIST.filter(function (b) { return b.id === state.bmsId; })[0] || null;
+    var bmsCost = bmsSel ? Math.max(0, bmsSel.price || 0) : 0;
+
+    return {
+      c: c, S: S, P: P, pack: pack, contLim: contLim, peakLim: peakLim, chgLim: chgLim, vLimDis: vLimDis, vLimChg: vLimChg, rdc: rdc,
+      rows: rows, T: T, rms: rms, avgDis: avgDis, avgChg: avgChg, net: net, peakDis: peakDis, peakChg: peakChg, sust: sust, contReq: contReq,
+      crest: rms > 0 ? peakDis / rms : 0, checks: checks, needs: needs, pReq: pReq, limiting: lim, worst: worst,
+      reqCont: reqCont, recCont: recCont, ocpHi: ocpHi, packContRaw: packContRaw, reqChg: reqChg, recChg: recChg, recCommon: recCommon,
+      packChg: packChg, loadCont: loadCont,
+      loss: loss, sag: sag, sagPct: sag / pack.vnom * 100, heat: heat, runtime: runtime, chgTime: chgTime,
+      cellCost: cellCost, bmsSel: bmsSel, bmsCost: bmsCost, totalCost: cellCost + bmsCost
+    };
+  }
+
+  /* ---------- hiển thị kết quả ---------- */
+  var ST = { ok: ["✓", "Đạt"], warn: ["!", "Sát giới hạn"], bad: ["✕", "Vượt"] };
+  function pill(st, txt) { return '<span class="pill ' + st + '">' + ST[st][0] + " " + (txt || ST[st][1]) + "</span>"; }
+  function bar(u, st) { return '<div class="bar ' + st + '"><i style="width:' + Math.min(100, Math.max(2, u * 100)) + '%"></i></div>'; }
+  function cr(I, ah) { return ah > 0 ? fmt(I / ah, 2) + "C" : "–"; }
+
+  function renderVerdict(R) {
+    var P = R.P, bmsCont = state.bmsType === "common" ? R.recCommon : R.recCont;
+    var headline, st = R.worst;
+    if (st === "bad") headline = "Pack chưa đủ tải. Cần tối thiểu " + R.pReq + "P (đang " + P + "P), bị giới hạn bởi: " + esc(R.limiting || "–") + ".";
+    else if (st === "warn") headline = "Pack chạy được nhưng sát giới hạn cell ở một số điểm. Nên tăng P hoặc giảm tải.";
+    else headline = "Pack đủ tải với dự phòng " + Math.round((1 - state.derate) * 100) + "%. BMS xả khuyến nghị " + bmsCont + " A.";
+    var btn = st === "bad" && isFinite(R.pReq) ? '<button type="button" class="btn" data-setp="' + R.pReq + '">Dùng ' + R.pReq + "P</button>" : "";
+    var sub = state.bmsType === "common" ? "cổng chung, đã gộp sạc" : "cổng riêng";
+    $("verdict").innerHTML =
+      '<div class="vhead">' + pill(st, st === "ok" ? "Đủ tải" : st === "warn" ? "Sát giới hạn" : "Chưa đủ tải") + "<h2>" + headline + "</h2>" + btn + "</div>" +
+      '<div class="kpis">' +
+      '<div class="kpi"><span class="kl">Cấu hình pack</span><span class="kv">' + R.S + "S" + R.P + "P</span><span class=\"ks\">" + fmt(R.pack.vnom, 1) + " V · " + fmt(R.pack.ah, 1) + " Ah · " + fmt(R.pack.wh / 1000, 2) + " kWh</span></div>" +
+      '<div class="kpi"><span class="kl">BMS xả liên tục</span><span class="kv">' + bmsCont + "<small>A</small></span><span class=\"ks\">pack xả " + fmt(R.reqCont, 1) + "–" + fmt(R.packContRaw, 1) + " A · " + sub + "</span></div>" +
+      '<div class="kpi"><span class="kl">Ngắt quá dòng (OCP) tối đa</span><span class="kv">' + fmt(R.ocpHi, 0) + "<small>A</small></span><span class=\"ks\">peak cell " + fmt(R.c.peak, 1) + " A × " + R.P + "P</span></div>" +
+      '<div class="kpi"><span class="kl">BMS sạc</span><span class="kv">' + (state.bmsType === "common" ? bmsCont : R.recChg) + "<small>A</small></span><span class=\"ks\">pack sạc ≤ " + fmt(R.packChg, 1) + " A · bộ sạc " + fmt(state.chg, 1) + " A</span></div>" +
+      "</div>";
+  }
+
+  function renderLimits(R) {
+    var c = R.c, P = R.P, ah = R.pack.ah, dr = Math.round(state.derate * 100);
+    function row(label, note, perCell, raw) {
+      return "<tr><td>" + label + '<span class="note">' + note + '</span></td><td class="num">' + fmt(perCell, 2) + " A</td><td class=\"num\"><b>" + fmt(perCell * P, 1) + " A</b>" + (raw ? '<span class="note">datasheet ' + fmt(raw * P, 1) + " A</span>" : "") + "</td><td class=\"num\"><b>" + cr(perCell * P, ah) + "</b></td></tr>";
+    }
+    $("limits").innerHTML = '<div class="tscroll"><table class="tbl"><thead><tr><th>Loại dòng</th><th>Mỗi cell</th><th>Cả pack (× ' + P + 'P)</th><th>Số C</th></tr></thead><tbody>' +
+      row("Xả liên tục", R.contLim < c.cont * state.derate - 1e-9 ? "bị giới hạn bởi sụt áp" : "đã nhân dự phòng " + dr + "%", R.contLim, c.cont) +
+      row("Xả peak", "≤ " + fmt(c.peakT, 1) + " ms, " + (R.peakLim < c.peak * state.derate - 1e-9 ? "bị giới hạn bởi sụt áp" : "đã nhân dự phòng " + dr + "%"), R.peakLim, c.peak) +
+      row("Xả theo sụt áp", "(" + fmt(c.vnom, 2) + " − " + fmt(c.vmin, 2) + " V) ÷ " + fmt(R.rdc * 1000, 1) + " mΩ, ở giữa dung lượng; gần cạn thấp hơn", R.vLimDis, 0) +
+      row("Sạc theo sụt áp", "(" + fmt(c.vmax, 2) + " − " + fmt(c.vnom, 2) + " V) ÷ " + fmt(R.rdc * 1000, 1) + " mΩ", R.vLimChg, 0) +
+      row("Sạc chuẩn", "theo datasheet", c.chgStd, 0) +
+      row("Sạc nhanh tối đa", "theo datasheet, cần quản lý nhiệt", c.chgMax, 0) +
+      "</tbody></table></div><p class=\"sub\">Số C tính trên dung lượng pack " + fmt(ah, 1) + " Ah. Dòng pack bằng dòng cell nhân với số P.</p>";
+  }
+
+  function renderMetrics(R) {
+    if (!R.rows.length) { $("metrics").innerHTML = '<div class="alert info">Thêm ít nhất một giai đoạn có thời gian lớn hơn 0 để tính RMS và peak.</div>'; return; }
+    function m(l, v, u, s) { return '<div class="metric"><div class="ml">' + l + '</div><div class="mv">' + v + (u ? " <small>" + u + "</small>" : "") + "</div>" + (s ? '<div class="ml">' + s + "</div>" : "") + "</div>"; }
+    $("metrics").innerHTML = '<div class="metrics">' +
+      m("Dòng RMS", fmt(R.rms, 1), "A", cr(R.rms, R.pack.ah)) +
+      m("Dòng peak xả", fmt(R.peakDis, 1), "A", cr(R.peakDis, R.pack.ah)) +
+      m("Trung bình xả", fmt(R.avgDis, 1), "A", "cả chu kỳ") +
+      m("Liên tục lớn nhất", fmt(R.sust, 1), "A", "giai đoạn > " + fmt(R.c.peakT, 1) + " ms") +
+      m("Hệ số đỉnh", fmt(R.crest, 2), "", "peak ÷ RMS") +
+      m("Chu kỳ", fmt(R.T, 0), "s", R.rows.length + " giai đoạn") + "</div>";
+  }
+
+  function renderChecks(R) {
+    var body = R.checks.map(function (k) {
+      return '<tr class="' + (k.summary ? "hl" : "") + '"><td>' + esc(k.label) + '<span class="note">' + k.sub + '</span></td><td class="num">' + fmt(k.I, 1) + ' A</td><td class="num">' + fmt(k.pc, 2) + ' A</td><td class="num">' + fmt(k.lim, 2) + ' A' + bar(Math.min(k.u, 1.2), k.st) + '</td><td class="num">' + (isFinite(k.u) ? fmt(k.u * 100, 0) + "%" : "–") + "</td><td>" + pill(k.st) + "</td></tr>";
+    }).join("");
+    $("checks").innerHTML = '<table class="tbl"><thead><tr><th>Giai đoạn</th><th>Dòng pack</th><th>Mỗi cell</th><th>Giới hạn cell</th><th>Mức dùng</th><th>Trạng thái</th></tr></thead><tbody>' + body + "</tbody></table>";
+  }
+
+  function renderBms(R) {
+    var bm = state.bm / 100 + 1, dr = state.derate, chgName = state.chgBasis === "max" ? "sạc nhanh" : "sạc chuẩn";
+    var items = [];
+    items.push(["Khả năng xả liên tục của pack", R.P + "P × " + fmt(R.contLim, 2) + " A " + (R.contLim < R.c.cont * dr - 1e-9 ? "(giới hạn sụt áp " + fmt(R.vLimDis, 1) + " A/cell, thấp hơn " + fmt(R.c.cont, 2) + " A × dự phòng " + fmt(dr, 2) + ")" : "(" + fmt(R.c.cont, 2) + " A xả liên tục cell × dự phòng " + fmt(dr, 2) + ")") + " = " + fmt(R.reqCont, 1) + " A; datasheet tối đa " + fmt(R.packContRaw, 1) + " A", R.reqCont, "A"]);
+    items.push(["BMS xả liên tục nên chọn", "cỡ tiêu chuẩn nhỏ nhất ≥ " + fmt(R.reqCont, 1) + " A; BMS lớn hơn vẫn dùng được", R.recCont, "A"]);
+    items.push(["Ngưỡng ngắt quá dòng (OCP) tối đa", R.P + "P × " + fmt(R.c.peak, 1) + " A (peak cell, ≤ " + fmt(R.c.peakT, 1) + " ms). Đặt OCP trong khoảng " + R.recCont + "–" + fmt(R.ocpHi, 0) + " A.", R.ocpHi, "A"]);
+    items.push(["Khả năng sạc của pack", R.P + "P × " + fmt(R.chgLim, 2) + " A (" + chgName + " cell) = " + fmt(R.packChg, 1) + " A", R.packChg, "A"]);
+    if (state.bmsType === "common") items.push(["BMS cổng chung nên chọn", "một mức dòng cho cả xả và sạc: lấy cỡ xả " + R.recCont + " A" + (state.chg > R.recCont ? ", nâng lên vì bộ sạc " + fmt(state.chg, 1) + " A lớn hơn" : "") + ". Dòng sạc thực tế do bộ sạc quyết định (" + fmt(state.chg, 1) + " A).", R.recCommon, "A"]);
+    else items.push(["BMS cổng sạc nên chọn", "cỡ tiêu chuẩn nhỏ nhất ≥ " + fmt(R.packChg, 1) + " A", R.recChg, "A"]);
+    if (R.rows.length) items.push(["Biên dạng tải cần (để đối chiếu)", "max(RMS " + fmt(R.rms, 1) + "; liên tục " + fmt(R.sust, 1) + ") × " + fmt(bm, 2) + " = " + fmt(R.loadCont, 1) + " A", R.loadCont, "A"]);
+    var html = '<div class="calc-list">' + items.map(function (it) {
+      return '<div class="calc"><span class="cl">' + it[0] + '</span><span class="cf">' + it[1] + '</span><span class="cr">' + fmt(it[2], it[2] % 1 ? 1 : 0) + " <small>" + it[3] + "</small></span></div>";
+    }).join("") + "</div>";
+    var bmsCont = state.bmsType === "common" ? R.recCommon : R.recCont;
+    if (R.rows.length && R.loadCont > bmsCont) html += '<div class="alert warn">Biên dạng tải đang chọn cần ' + fmt(R.loadCont, 1) + " A, lớn hơn mức pack " + R.S + "S" + R.P + "P chịu được (BMS " + bmsCont + " A)." + (state.rows.some(function (r) { return r.unit === "W"; }) ? " Tải tính theo W thì dòng = công suất ÷ điện áp pack, nên pack ít S sẽ ra dòng rất lớn." : "") + " Chọn mẫu tải phù hợp với pack, hoặc tăng P.</div>";
+    if (R.pack.vmax > 0) html += '<div class="alert info">Chọn BMS đúng số S (' + R.S + "S) và điện áp tối đa ≥ " + fmt(R.pack.vmax, 1) + " V. Dòng ghi trên BMS là dòng liên tục khi MOSFET có tản nhiệt.</div>";
+    $("bms").innerHTML = html;
+  }
+
+  function renderPmin(R) {
+    var maxReq = Math.max.apply(null, R.needs.map(function (n) { return n.req; }).concat([0]));
+    var body = R.needs.map(function (n) {
+      var hl = n.p === R.pReq && R.pReq >= 1 && n.req >= maxReq - 1e-9;
+      return '<tr class="' + (hl ? "hl" : "") + '"><td>' + esc(n.label) + '</td><td class="num">' + fmt(n.req, 2) + '</td><td class="num"><b>' + (isFinite(n.p) ? n.p + "P" : "–") + "</b></td></tr>";
+    }).join("");
+    var action = R.pReq !== R.P && isFinite(R.pReq) ? '<button type="button" class="btn" data-setp="' + R.pReq + '">Dùng ' + R.pReq + 'P</button>' : "";
+    $("pmin").innerHTML = '<p class="sub" style="margin:0 0 8px">Số P nhỏ nhất để mỗi cell nằm trong giới hạn ở từng điều kiện. Dòng lớn nhất quyết định.</p><div class="tscroll"><table class="tbl"><thead><tr><th>Điều kiện</th><th>P cần (thực)</th><th>Làm tròn</th></tr></thead><tbody>' + body + "</tbody></table></div>" +
+      '<p style="margin:12px 0 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span>Tối thiểu: <b class="mono">' + R.S + "S" + R.pReq + "P</b> (đang " + R.S + "S" + R.P + "P)</span>" + action + "</p>";
+  }
+
+  function renderThermal(R) {
+    function m(l, v, u, s) { return '<div class="metric"><div class="ml">' + l + '</div><div class="mv">' + v + (u ? " <small>" + u + "</small>" : "") + "</div>" + (s ? '<div class="ml">' + s + "</div>" : "") + "</div>"; }
+    $("thermal").innerHTML = '<div class="metrics" style="margin:0">' +
+      m("Nội trở pack", fmt(R.pack.rmo, 1), "mΩ", R.S + "S ÷ " + R.P + "P, chưa tính dây và thanh nối") +
+      m("Sụt áp ở peak", fmt(R.sag, 2), "V", fmt(R.sagPct, 1) + "% điện áp danh định") +
+      m("Tổn hao RMS trong pack", fmt(R.loss, 1), "W", "RMS² × nội trở") +
+      m("Nhiệt mỗi cell", fmt(R.heat, 2), "W", "cần tản nhiệt nếu liên tục > 1–2 W") +
+      m("Thời gian chạy", isFinite(R.runtime) ? fmt(R.runtime, 1) : "–", isFinite(R.runtime) ? "giờ" : "", "dùng 90% dung lượng, dòng TB ròng " + fmt(R.net, 1) + " A") +
+      m("Thời gian chạy cuối đời", isFinite(R.runtime) ? fmt(R.runtime * 0.8, 1) : "–", isFinite(R.runtime) ? "giờ" : "", "khi dung lượng còn 80%, mốc hết đời theo chuẩn ngành") +
+      m("Thời gian sạc", isFinite(R.chgTime) ? fmt(R.chgTime, 1) : "–", isFinite(R.chgTime) ? "giờ" : "", "CC-CV ước tính, " + fmt(R.pack.kg, 2) + " kg pack") + "</div>";
+  }
+
+  function renderFacts(R) {
+    function f(l, v) { return "<div><dt>" + l + "</dt><dd>" + v + "</dd></div>"; }
+    $("packFacts").innerHTML = f("Điện áp danh định", fmt(R.pack.vnom, 1) + " V") + f("Đầy / cắt xả", fmt(R.pack.vmax, 1) + " / " + fmt(R.pack.vmin, 1) + " V") +
+      f("Dung lượng", fmt(R.pack.ah, 1) + " Ah") + f("Năng lượng", fmt(R.pack.wh, 0) + " Wh") + f("Tổng số cell", R.pack.n) + f("Khối lượng cell", fmt(R.pack.kg, 2) + " kg");
+  }
+
+  function renderCost(R) {
+    var b = R.bmsSel, cellName = (CELLS.filter(function (c) { return c.id === state.cellId; })[0] || {}).name || "Cell";
+    $("cost").innerHTML = '<div class="tscroll"><table class="tbl"><thead><tr><th>Mục</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>' +
+      "<tr><td>Cell<span class=\"note\">" + esc(cellName) + '</span></td><td class="num">' + R.S + " × " + R.P + " = <b>" + R.pack.n + ' viên</b><span class="note">S × P</span></td><td class="num">' + vnd(R.c.price) + '</td><td class="num"><b>' + vnd(R.cellCost) + "</b></td></tr>" +
+      "<tr><td>BMS<span class=\"note\">" + (b ? esc(b.brand + " " + b.model) : "chưa chọn, chọn ở mục Chọn BMS") + '</span></td><td class="num">' + (b ? "1 cái" : "–") + '</td><td class="num">' + (b ? (b.price ? vnd(b.price) : "chưa có giá") : "–") + '</td><td class="num"><b>' + vnd(R.bmsCost) + "</b></td></tr>" +
+      '<tr class="hl"><td><b>Tổng tiền nhập</b></td><td></td><td></td><td class="num"><b>' + vnd(R.totalCost) + "</b></td></tr>" +
+      "</tbody></table></div>" +
+      (R.c.price > 0 ? (R.c.price === PRICE[state.cellId] ? '<p class="sub">' + PRICE_NOTE + "</p>" : "") : '<p class="alert warn">Chưa có đơn giá cell. Nhập giá 1 viên ở ô trên.</p>');
+  }
+
+  /* ---------- danh sách BMS ---------- */
+  function vnd(x) { return Math.round(x || 0).toLocaleString("vi-VN") + " đ"; }
+  function bmsS(b, chem) { return b.sRange ? b.sRange[chem] || null : [b.sMin, b.sMax]; }
+  function bmsSOk(b, chem, S) { var r = bmsS(b, chem); return !!r && S >= r[0] && S <= r[1]; }
+  function sTxt(r) { return r[0] === r[1] ? String(r[0]) : r[0] + "–" + r[1]; }
+  function bmsFit(b, R) {
+    var bad = [], warn = [], chg = b.chg || b.cont;
+    if (b.chem && b.chem.indexOf(state.chem) < 0) bad.push("không hỗ trợ " + CHEM[state.chem].name);
+    if (bmsS(b, state.chem) && !bmsSOk(b, state.chem, R.S)) bad.push("cần " + R.S + "S");
+    if (chg < state.chg) bad.push("sạc < bộ sạc " + fmt(state.chg, 1) + " A");
+    if (!b.cont) warn.push("nhà bán không ghi dòng xả liên tục, cần hỏi lại");
+    else if (b.cont < R.reqCont) warn.push("nhỏ hơn khả năng xả của pack " + fmt(R.reqCont, 1) + " A, BMS sẽ giới hạn dòng pack");
+    if (R.rows.length && b.cont && b.cont < R.loadCont) warn.push("không đủ cho biên dạng tải " + fmt(R.loadCont, 1) + " A");
+    if (b.balance && b.balance < 0.05) warn.push("cân bằng " + fmt(b.balance * 1000, 0) + " mA thấp (thường 50–200 mA): lệch 1% dung lượng nhóm " + fmt(R.pack.ah, 1) + " Ah mất khoảng " + fmt(0.01 * R.pack.ah / b.balance, 1) + " giờ để cân lại");
+    if (b.uvp && b.uvp < R.c.vmin - 1e-9) warn.push("ngắt quá xả " + fmt(b.uvp, 2) + " V/cell thấp hơn áp cắt xả cell " + fmt(R.c.vmin, 2) + " V, cần giới hạn áp thấp ở bộ điều khiển");
+    return { st: bad.length ? "bad" : warn.length ? "warn" : "ok", why: bad.concat(warn) };
+  }
+  function renderBmsList(R) {
+    if (!BMS_LIST.length) {
+      $("bmsList").innerHTML = '<div class="alert info">Chưa có BMS nào. Thêm BMS vào mảng <span class="mono">BMS_LIST</span> trong index.html (hãng, model, dải S, dòng xả, dòng sạc, kiểu cổng, giá). Bảng này sẽ so từng BMS với pack hiện tại và cộng giá BMS bạn chọn vào tổng giá pack.</div>';
+      return;
+    }
+    var rank = { ok: 0, warn: 1, bad: 2 };
+    // hiện tất cả BMS, tô màu theo mức phù hợp: xanh = hợp, vàng = vừa đủ / lưu ý, đỏ = không hợp
+    var all = BMS_LIST.map(function (b) { return { b: b, f: bmsFit(b, R) }; });
+    // tab theo hãng
+    var brands = [];
+    BMS_LIST.forEach(function (b) { if (brands.indexOf(b.brand) < 0) brands.push(b.brand); });
+    var count = function (br, st) { return all.filter(function (it) { return it.b.brand === br && (!st || it.f.st === st); }).length; };
+    if (brands.indexOf(state.bmsBrand) < 0) state.bmsBrand = brands.filter(function (br) { return count(br, "ok"); })[0] || brands.filter(function (br) { return count(br, "warn"); })[0] || brands[0];
+    var sel = BMS_LIST.filter(function (b) { return b.id === state.bmsId; })[0];
+    var tabs = '<div class="chips" style="margin-bottom:12px">' + brands.map(function (br) {
+      return '<button type="button" class="chip" data-brand="' + esc(br) + '" aria-pressed="' + (br === state.bmsBrand) + '">' + esc(br) + "<small>" + count(br, "ok") + " hợp / " + count(br) + "</small>" + (sel && sel.brand === br ? " ✓" : "") + "</button>";
+    }).join("") + "</div>";
+    var list = all.filter(function (it) { return it.b.brand === state.bmsBrand; })
+      .sort(function (x, y) { return rank[x.f.st] - rank[y.f.st] || (x.b.price || 0) - (y.b.price || 0); });
+    var body = list.map(function (it) {
+      var b = it.b, on = b.id === state.bmsId;
+      return '<tr class="st-' + it.f.st + (on ? " sel" : "") + '"><td>' + esc(b.brand) + '<span class="note">' + esc(b.model) + (b.note ? " · " + esc(b.note) : "") + '</span></td>' +
+        '<td class="num">' + sTxt(bmsS(b, state.chem) || [b.sMin, b.sMax]) + 'S<span class="note">' + esc((b.chem || []).map(function (k) { return k.toUpperCase() + (b.sRange ? " " + sTxt(b.sRange[k]) + "S" : ""); }).join(", ")) + "</span></td>" +
+        '<td class="num">' + (b.cont ? fmt(b.cont, 0) : "–") + " / " + (b.peak ? fmt(b.peak, 0) : "–") + ' A<span class="note">sạc ' + fmt(b.chg || b.cont, 0) + " A" + (b.balance ? " · cân bằng " + fmt(b.balance, 2) + " A" : "") + "</span></td>" +
+        "<td>" + (b.port === "sep" ? "Riêng" : "Chung") + '</td><td class="num">' + (b.price ? vnd(b.price) : "chưa có giá") + "</td>" +
+        "<td>" + pill(it.f.st, { ok: "Phù hợp", warn: "Lưu ý", bad: "Không hợp" }[it.f.st]) + (it.f.why.length ? '<span class="note">' + esc(it.f.why.join("; ")) + "</span>" : "") + "</td>" +
+        '<td><button type="button" class="btn' + (on ? "" : " ghost") + '" data-bms="' + esc(b.id) + '">' + (on ? "Đã chọn" : "Chọn") + "</button></td></tr>";
+    }).join("");
+    $("bmsList").innerHTML = tabs + '<div class="tscroll"><table class="tbl"><thead><tr><th>Hãng / model</th><th>Dải S</th><th>Liên tục / peak</th><th>Cổng</th><th>Giá</th><th>Phù hợp</th><th></th></tr></thead><tbody>' + body + "</tbody></table></div>" +
+      '<p class="sub">So với pack ' + R.S + "S" + R.P + "P: xả liên tục " + fmt(R.reqCont, 1) + "–" + fmt(R.packContRaw, 1) + " A, OCP ≤ " + fmt(R.ocpHi, 0) + " A, bộ sạc " + fmt(state.chg, 1) + " A. Xanh: phù hợp. Vàng: vừa đủ hoặc cần lưu ý. Đỏ: không hợp. Peak ghi – là nhà bán không ghi. Bấm lần nữa để bỏ chọn.</p>";
+  }
+
+  /* ---------- biểu đồ ---------- */
+  function niceStep(range, n) {
+    var raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+  }
+  function renderLegend(R) {
+    var hasChg = R.rows.some(function (r) { return r.kind === "chg"; });
+    $("legend").innerHTML = R.rows.length ?
+      '<span><i class="sw" style="background:var(--dis)"></i>Dòng xả</span>' + (hasChg ? '<span><i class="sw" style="background:var(--chg)"></i>Sạc tái sinh</span>' : "") +
+      '<span><i class="sw line" style="border-color:var(--rms)"></i>RMS</span><span><i class="sw line" style="border-color:var(--ink)"></i>BMS xả khuyến nghị</span>' : "";
+  }
+  function drawChart() {
+    var R = last, wrap = $("chart");
+    if (!R || !R.rows.length) { wrap.innerHTML = ""; return; }
+    var W = Math.max(280, wrap.clientWidth || 600), H = 250;
+    var m = { l: 42, r: 12, t: 10, b: 32 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var bms = state.bmsType === "common" ? R.recCommon : R.recCont;
+    var top = Math.max(R.peakDis, R.rms, bms) * 1.05, bot = R.peakChg > 0 ? -R.peakChg * 1.15 : 0;
+    var step = niceStep(top - bot, 5);
+    var ymax = Math.ceil(top / step) * step, ymin = Math.floor(bot / step) * step;
+    function y(v) { return m.t + (ymax - v) / (ymax - ymin) * ih; }
+    function x(t) { return m.l + t / R.T * iw; }
+    var s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Biên dạng dòng điện theo thời gian, với đường RMS và BMS khuyến nghị">';
+    for (var v = ymin; v <= ymax + 1e-9; v += step) {
+      s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="var(--line)" stroke-width="' + (Math.abs(v) < 1e-9 ? 1.5 : 1) + '"/>' +
+        '<text x="' + (m.l - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="var(--muted)" font-family="JetBrains Mono, monospace">' + fmt(v, step < 1 ? 1 : 0) + "</text>";
+    }
+    var useMin = R.T > 600, tdiv = useMin ? 60 : 1, tstep = niceStep(R.T / tdiv, Math.max(2, Math.floor(iw / 80)));
+    for (var t = 0; t <= R.T / tdiv + 1e-9; t += tstep) {
+      s += '<text x="' + x(t * tdiv) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="JetBrains Mono, monospace">' + fmt(t, 1) + "</text>";
+    }
+    s += '<text x="' + (W - m.r) + '" y="' + (H - 1) + '" text-anchor="end" font-size="11" fill="var(--muted)">' + (useMin ? "phút" : "giây") + "</text>";
+    R.rows.forEach(function (r) {
+      var x0 = x(r.start), w = Math.max(2, r.dur / R.T * iw);
+      var yy = r.kind === "dis" ? y(r.I) : y(0), hh = Math.abs(y(r.kind === "dis" ? 0 : -r.I) - y(r.kind === "dis" ? r.I : 0));
+      s += '<rect x="' + x0 + '" y="' + yy + '" width="' + w + '" height="' + Math.max(hh, 1) + '" fill="' + (r.kind === "dis" ? "var(--dis)" : "var(--chg)") + '" stroke="var(--surface)" stroke-width="1" opacity=".9"/>';
+    });
+    var yR = y(R.rms), yB = y(bms);
+    s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + yR + '" y2="' + yR + '" stroke="var(--rms)" stroke-width="2" stroke-dasharray="6 4"/>';
+    s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + yB + '" y2="' + yB + '" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="2 3"/>';
+    var close = Math.abs(yR - yB) < 15, rUnder = close && yR > yB, bUnder = close && yB >= yR;
+    function lab(yl, under, txt, col) {
+      return '<text x="' + (W - m.r - 4) + '" y="' + (under ? yl + 13 : yl - 5) + '" text-anchor="end" font-size="11" font-weight="600" fill="' + col + '" font-family="JetBrains Mono, monospace" stroke="var(--surface)" stroke-width="3" paint-order="stroke">' + txt + "</text>";
+    }
+    s += lab(yR, rUnder, "RMS " + fmt(R.rms, 1) + " A", "var(--rms)") + lab(yB, bUnder, "BMS " + bms + " A", "var(--ink)");
+    s += "</svg>";
+    wrap.innerHTML = s;
+    var svg = wrap.firstChild, tip = $("tip");
+    function show(e) {
+      var rect = svg.getBoundingClientRect(), px = (e.clientX - rect.left) * (W / rect.width);
+      var tt = (px - m.l) / iw * R.T, hit = null;
+      if (tt >= 0 && tt <= R.T) R.rows.forEach(function (r) { if (tt >= r.start && tt < r.start + r.dur) hit = r; });
+      if (!hit) { tip.hidden = true; return; }
+      tip.innerHTML = "<b>" + esc(hit.name) + "</b><br>" + (hit.kind === "dis" ? "Xả " : "Sạc ") + fmt(hit.I, 1) + " A · " + fmt(hit.dur, 1) + " s<br>" + fmt(hit.I / R.P, 2) + " A mỗi cell · " + cr(hit.I, R.pack.ah);
+      tip.hidden = false;
+      var wr = $("chartWrap").getBoundingClientRect(), tx = e.clientX - wr.left + 12;
+      if (tx + 200 > wr.width) tx = e.clientX - wr.left - 212;
+      tip.style.left = Math.max(0, tx) + "px"; tip.style.top = Math.max(0, e.clientY - wr.top - 10) + "px";
+    }
+    svg.addEventListener("pointermove", show);
+    svg.addEventListener("pointerdown", show);
+    svg.addEventListener("pointerleave", function () { tip.hidden = true; });
+  }
+
+  function renderBadges(R) {
+    $("tb-pin").textContent = R.S + "S" + R.P + "P";
+    $("tb-tai").textContent = R.rows.length ? "RMS " + fmt(R.rms, 1) + " A" : "";
+    $("tb-bms").textContent = (state.bmsType === "common" ? R.recCommon : R.recCont) + " A";
+    $("tb-cost").textContent = vnd(R.totalCost);
+  }
+
+  /* ---------- tab ---------- */
+  var TABS = ["pin", "tai", "bms", "cost"];
+  function showTab(t, focus) {
+    if (TABS.indexOf(t) < 0) t = "pin";
+    TABS.forEach(function (k) {
+      var on = k === t, b = $("tab-" + k);
+      b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1;
+      $("panel-" + k).hidden = !on;
+    });
+    if (focus) $("tab-" + t).focus();
+    try { localStorage.setItem("bc.tab", t); } catch (e) { /* không lưu được thì thôi */ }
+    if (t === "tai") drawChart();
+  }
+  document.addEventListener("keydown", function (e) {
+    var t = e.target.dataset && e.target.dataset.tab; if (!t) return;
+    var i = TABS.indexOf(t), n = TABS.length, j = null;
+    if (e.key === "ArrowRight") j = (i + 1) % n; else if (e.key === "ArrowLeft") j = (i + n - 1) % n;
+    else if (e.key === "Home") j = 0; else if (e.key === "End") j = n - 1;
+    if (j !== null) { e.preventDefault(); showTab(TABS[j], true); }
+  });
+
+  function render() {
+    var R = calc(); last = R;
+    renderVerdict(R); renderLimits(R); renderMetrics(R); renderLegend(R); drawChart(); renderChecks(R); renderBms(R); renderBmsList(R); renderCost(R); renderPmin(R); renderThermal(R); renderFacts(R); buildVolts(); renderBadges(R);
+  }
+
+  /* ---------- sự kiện ---------- */
+  var num = function (el) { var v = parseFloat(el.value); return isFinite(v) ? v : 0; };
+  function setChem(k) {
+    state.chem = k;
+    var sz = sizes(k); if (sz.indexOf(state.size) < 0) state.size = sz[0];
+    var first = CELLS.filter(function (c) { return c.chem === k && c.size === state.size; })[0];
+    buildChem(); buildSizes(); buildCellSel();
+    pickCell(first.id); $("cellSel").value = first.id;
+  }
+  function setSize(s) {
+    state.size = s;
+    var first = CELLS.filter(function (c) { return c.chem === state.chem && c.size === s; })[0];
+    buildSizes(); buildCellSel(); pickCell(first.id); $("cellSel").value = first.id;
+  }
+  function setP(p) { state.P = Math.max(1, Math.round(p)); $("inP").value = state.P; }
+
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.tab) { showTab(b.dataset.tab); return; }
+    if (b.dataset.chem) { setChem(b.dataset.chem); render(); }
+    else if (b.dataset.size) { setSize(b.dataset.size); render(); }
+    else if (b.dataset.s) { state.S = +b.dataset.s; $("inS").value = state.S; render(); }
+    else if (b.dataset.step) {
+      var k = b.dataset.step; state[k] = Math.max(1, state[k] + (+b.dataset.d)); $(k === "S" ? "inS" : "inP").value = state[k]; render();
+    }
+    else if (b.dataset.setp) { setP(+b.dataset.setp); render(); }
+    else if (b.dataset.brand) { state.bmsBrand = b.dataset.brand; render(); }
+    else if (b.dataset.bms) { state.bmsId = state.bmsId === b.dataset.bms ? null : b.dataset.bms; render(); }
+    else if (b.dataset.c) { state.chg = Math.round(+b.dataset.c * (state.P * state.cell.cap / 1000) * 10) / 10; $("inChg").value = state.chg; render(); }
+    else if (b.dataset.del !== undefined) { state.rows.splice(+b.dataset.del, 1); $("profSel").value = "blank"; buildRows(); render(); }
+    else if (b.id === "btnAdd") { state.rows.push({ name: "Giai đoạn mới", kind: "dis", unit: "A", val: 10, dur: 30 }); $("profSel").value = "blank"; buildRows(); render(); }
+    else if (b.id === "btnAh") {
+      var ah = num($("tAh")); if (ah > 0 && state.cell.cap > 0) { setP(Math.ceil(ah * 1000 / state.cell.cap - 1e-9)); render(); }
+    }
+  });
+
+  document.addEventListener("input", function (e) {
+    var t = e.target, id = t.id;
+    if (t.dataset.cell) { state.cell[t.dataset.cell] = num(t); state.edited = true; $("editedTag").innerHTML = '<span class="tag">đã chỉnh tay</span>'; }
+    else if (t.closest("#rows") && t.dataset.k) {
+      var i = +t.closest(".prow").dataset.i, k = t.dataset.k;
+      state.rows[i][k] = (k === "name" || k === "kind" || k === "unit") ? t.value : num(t);
+      $("profSel").value = "blank";
+    }
+    else if (id === "inS") state.S = Math.max(1, Math.round(num(t)) || 1);
+    else if (id === "inP") state.P = Math.max(1, Math.round(num(t)) || 1);
+    else if (id === "inEff") state.eff = Math.min(100, Math.max(1, num(t) || 1));
+    else if (id === "inChg") state.chg = num(t);
+    else if (id === "inPrice") state.cell.price = Math.max(0, num(t));
+    else if (id === "inIr") state.irMul = Math.max(1, num(t) || 1.5);
+    else if (id === "inDerate") state.derate = Math.min(1, Math.max(0.1, num(t) || 0.8));
+    else if (id === "inBm") state.bm = Math.max(0, num(t));
+    else if (id === "selVb") state.vb = t.value;
+    else if (id === "selChg") state.chgBasis = t.value;
+    else if (id === "selBms") state.bmsType = t.value;
+    else if (id === "cellSel") pickCell(t.value);
+    else if (id === "profSel") { loadProfile(t.value); }
+    else return;
+    render();
+  });
+
+  /* ---------- khởi tạo ---------- */
+  buildCellFields(); buildChem(); buildSizes(); buildCellSel(); buildCChips();
+  $("profSel").innerHTML = Object.keys(PROFILES).map(function (k) { return '<option value="' + k + '">' + esc(PROFILES[k].name) + "</option>"; }).join("");
+  pickCell(state.cellId);
+  state.rows = JSON.parse(JSON.stringify(PROFILES.ebike.rows));
+  buildRows(); writeScalars(); render();
+  var savedTab = null; try { savedTab = localStorage.getItem("bc.tab"); } catch (e) { /* bỏ qua */ }
+  showTab(savedTab || "pin");
+  if (window.ResizeObserver) new ResizeObserver(function () { drawChart(); }).observe($("chartWrap"));
+  else window.addEventListener("resize", drawChart);
+})();
+</script>
+
+</body>
+</html>
